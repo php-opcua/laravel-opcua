@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "gianfriaur/opcua-php-client": "^1.1.0",
+        "gianfriaur/opcua-php-client": "^1.1.1",
         "gianfriaur/opcua-php-client-session-manager": "^1.1.0",
         "illuminate/support": "^11.0|^12.0",
         "illuminate/console": "^11.0|^12.0",

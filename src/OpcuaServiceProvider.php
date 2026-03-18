@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Gianfriaur\OpcuaLaravel;
 
 use Gianfriaur\OpcuaLaravel\Commands\SessionCommand;
+use Gianfriaur\OpcuaLaravel\Commands\SubscribeCommand;
 use Illuminate\Support\ServiceProvider;
 
 class OpcuaServiceProvider extends ServiceProvider
@@ -29,6 +30,7 @@ class OpcuaServiceProvider extends ServiceProvider
 
             $this->commands([
                 SessionCommand::class,
+                SubscribeCommand::class,
             ]);
         }
     }

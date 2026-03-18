@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Gianfriaur\OpcuaLaravel;
 
+use Gianfriaur\OpcuaLaravel\Subscriptions\SubscriptionBuilder;
 use Gianfriaur\OpcuaPhpClient\Client;
 use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
 use Gianfriaur\OpcuaPhpClient\Security\SecurityMode;
@@ -14,6 +15,9 @@ class OpcuaManager
 {
     /** @var array<string, OpcUaClientInterface> */
     protected array $connections = [];
+
+    /** @var array<string, SubscriptionBuilder> */
+    protected array $registeredSubscriptions = [];
 
     public function __construct(
         protected array $config,
@@ -237,6 +241,31 @@ class OpcuaManager
         $socketPath = $this->config['session_manager']['socket_path'] ?? null;
 
         return $socketPath !== null && file_exists($socketPath);
+    }
+
+    /**
+     * @param string $name
+     * @return SubscriptionBuilder
+     */
+    public function subscription(string $name): SubscriptionBuilder
+    {
+        $builder = new SubscriptionBuilder($name);
+        $this->registeredSubscriptions[$name] = $builder;
+
+        return $builder;
+    }
+
+    /**
+     * @return array<string, array>
+     */
+    public function getRegisteredSubscriptions(): array
+    {
+        $result = [];
+        foreach ($this->registeredSubscriptions as $name => $builder) {
+            $result[$name] = $builder->toArray();
+        }
+
+        return $result;
     }
 
     /**

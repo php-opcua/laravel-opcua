@@ -73,4 +73,49 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Subscriptions
+    |--------------------------------------------------------------------------
+    |
+    | Define OPC UA subscriptions that automatically dispatch Laravel jobs
+    | when data changes or events/alarms occur. Requires the session manager
+    | daemon to be running (php artisan opcua:session).
+    |
+    | Start the subscription worker with: php artisan opcua:subscribe
+    |
+    | Subscriptions can also be registered programmatically (e.g. for ad-hoc
+    | connections) via Opcua::subscription(). See doc/subscriptions.md.
+    |
+    | Two types are supported:
+    |
+    |   "data_change" — monitors node values, dispatches job on change
+    |   "event"       — monitors OPC UA events/alarms, dispatches job on event
+    |
+    | Example:
+    |
+    |   'temperature-monitor' => [
+    |       // 'connection' => 'default',             // optional, defaults to opcua.default
+    |       'nodes' => [
+    |           ['node_id' => 'ns=2;i=1001', 'sampling_interval' => 250.0],
+    |           ['node_id' => 'ns=2;i=1002'],
+    |       ],
+    |       'job' => \App\Jobs\TemperatureChanged::class,
+    |       // 'queue' => null,                       // optional queue name
+    |       // 'publishing_interval' => 500.0,     // optional (ms, default 500)
+    |   ],
+    |
+    |   'server-alarms' => [
+    |       'type' => 'event',
+    |       'node_id' => 'i=2253',                 // Server node
+    |       'job' => \App\Jobs\HandleAlarm::class,
+    |       // 'select_fields' => ['EventId', 'EventType', 'SourceName', 'Time', 'Message', 'Severity'],  // default
+    |       // 'publishing_interval' => 500.0,     // optional
+    |   ],
+    |
+    */
+
+    'subscriptions' => [
+
+    ],
 ];

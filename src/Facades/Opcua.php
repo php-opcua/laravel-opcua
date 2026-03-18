@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Gianfriaur\OpcuaLaravel\Facades;
 
+use Gianfriaur\OpcuaLaravel\OpcuaManager;
+use Gianfriaur\OpcuaLaravel\Subscriptions\SubscriptionBuilder;
 use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
 use Gianfriaur\OpcuaPhpClient\Types\BuiltinType;
 use Gianfriaur\OpcuaPhpClient\Types\DataValue;
 use Gianfriaur\OpcuaPhpClient\Types\EndpointDescription;
 use Gianfriaur\OpcuaPhpClient\Types\NodeId;
 use Gianfriaur\OpcuaPhpClient\Types\ReferenceDescription;
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
 use Illuminate\Support\Facades\Facade;
 
 /**
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static void disconnectAll()
  * @method static bool isSessionManagerRunning()
  * @method static string getDefaultConnection()
+ * @method static SubscriptionBuilder subscription(string $name)
+ * @method static array getRegisteredSubscriptions()
  *
  * Proxied to default connection:
  * @method static void connect(string $endpointUrl)
@@ -34,6 +37,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array call(NodeId $objectId, NodeId $methodId, array $inputArguments = [])
  * @method static array createSubscription(float $publishingInterval = 500.0, int $lifetimeCount = 2400, int $maxKeepAliveCount = 10, int $maxNotificationsPerPublish = 0, bool $publishingEnabled = true, int $priority = 0)
  * @method static array createMonitoredItems(int $subscriptionId, array $items)
+ * @method static array createEventMonitoredItem(int $subscriptionId, NodeId $nodeId, array $selectFields = ['EventId', 'EventType', 'SourceName', 'Time', 'Message', 'Severity'], int $clientHandle = 1)
  * @method static array deleteMonitoredItems(int $subscriptionId, array $monitoredItemIds)
  * @method static int deleteSubscription(int $subscriptionId)
  * @method static array publish(array $acknowledgements = [])
