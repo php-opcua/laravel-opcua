@@ -74,7 +74,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 }
 
                 expect($dataTypesNode)->not->toBeNull();
-                expect($dataTypesNode->children)->not->toBeEmpty();
+                expect($dataTypesNode->hasChildren())->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -91,7 +91,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 expect($tree)->toBeArray()->not->toBeEmpty();
 
                 foreach ($tree as $node) {
-                    expect($node->children)->toBeEmpty();
+                    expect($node->hasChildren())->toBeFalse();
                 }
             } finally {
                 TestHelper::safeDisconnect('default', $manager);

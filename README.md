@@ -4,7 +4,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
-    <img alt="OPC UA Laravel Client" src="assets/logo-light.svg" width="320">
+    <img alt="OPC UA Laravel Client" src="assets/logo-light.svg" width="435">
   </picture>
 </div>
 

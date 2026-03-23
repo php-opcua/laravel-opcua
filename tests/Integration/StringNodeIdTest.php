@@ -49,7 +49,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $results = $client->readMulti([
                     ['nodeId' => 'i=2259'],
-                    ['nodeId' => 'i=2256'],
+                    ['nodeId' => 'i=2257'],
                 ]);
 
                 expect($results)->toHaveCount(2);

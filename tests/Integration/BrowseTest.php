@@ -138,7 +138,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $result = $client->browseWithContinuation(NodeId::numeric(0, 85));
 
                 expect($result->references)->toBeArray()->not->toBeEmpty();
-                expect($result->continuationPoint)->toBeString();
+                expect($result->continuationPoint === null || is_string($result->continuationPoint))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }

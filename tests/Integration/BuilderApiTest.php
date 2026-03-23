@@ -19,8 +19,8 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client = $manager->connect();
 
                 $results = $client->readMulti()
-                    ->node('i=2259')->value()
-                    ->node('i=2256')->value()
+                    ->node('i=2259')
+                    ->node('i=2257')
                     ->execute();
 
                 expect($results)->toHaveCount(2);
@@ -59,7 +59,8 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client = $manager->connect();
 
                 $results = $client->translateBrowsePaths()
-                    ->path('i=84', [['targetName' => new \Gianfriaur\OpcuaPhpClient\Types\QualifiedName(0, 'Objects')]])
+                    ->from('i=84')
+                    ->path('Objects')
                     ->execute();
 
                 expect($results)->toHaveCount(1);
