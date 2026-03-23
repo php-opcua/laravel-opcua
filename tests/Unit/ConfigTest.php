@@ -31,6 +31,8 @@ describe('opcua config', function () {
             'max_sessions',
             'socket_mode',
             'allowed_cert_dirs',
+            'log_channel',
+            'cache_store',
         ]);
     });
 
@@ -69,5 +71,12 @@ describe('opcua config', function () {
         expect($sm['socket_mode'])->toBe(0600);
         expect($sm['auth_token'])->toBeNull();
         expect($sm['allowed_cert_dirs'])->toBeNull();
+    });
+
+    it('has sensible daemon logging and cache defaults', function () {
+        $sm = $this->config['session_manager'];
+
+        expect($sm['log_channel'])->toBeString();
+        expect($sm['cache_store'])->toBeString();
     });
 });

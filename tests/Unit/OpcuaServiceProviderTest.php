@@ -8,6 +8,9 @@ use Gianfriaur\OpcuaLaravel\OpcuaServiceProvider;
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Psr\SimpleCache\CacheInterface;
 
 if (!function_exists('config_path')) {
     function config_path(string $path = ''): string
@@ -16,7 +19,7 @@ if (!function_exists('config_path')) {
     }
 }
 
-function makeApp(): Container
+function makeApp(?LoggerInterface $logger = null, ?CacheInterface $cache = null): Container
 {
     $app = new Container();
     Container::setInstance($app);
@@ -35,6 +38,8 @@ function makeApp(): Container
                 'max_sessions' => 100,
                 'socket_mode' => 0600,
                 'allowed_cert_dirs' => null,
+                'log_channel' => 'stack',
+                'cache_store' => 'file',
             ],
             'connections' => [
                 'default' => [
@@ -47,6 +52,14 @@ function makeApp(): Container
     $app->instance('config', $config);
     $app->instance('events', new Dispatcher($app));
     $app->instance('path.config', sys_get_temp_dir());
+
+    if ($logger !== null) {
+        $app->instance(LoggerInterface::class, $logger);
+    }
+
+    if ($cache !== null) {
+        $app->instance(CacheInterface::class, $cache);
+    }
 
     return $app;
 }
@@ -97,6 +110,46 @@ describe('OpcuaServiceProvider', function () {
             expect($config)->toHaveKey('session_manager');
             expect($config)->toHaveKey('connections');
         });
+
+        it('injects Laravel logger into OpcuaManager when bound', function () {
+            $logger = new NullLogger();
+            $app = makeApp(logger: $logger);
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            $manager = $app->make(OpcuaManager::class);
+            $ref = new ReflectionProperty($manager, 'defaultLogger');
+
+            expect($ref->getValue($manager))->toBe($logger);
+        });
+
+        it('injects Laravel cache into OpcuaManager when bound', function () {
+            $cache = Mockery::mock(CacheInterface::class);
+            $app = makeApp(cache: $cache);
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            $manager = $app->make(OpcuaManager::class);
+            $ref = new ReflectionProperty($manager, 'defaultCache');
+
+            expect($ref->getValue($manager))->toBe($cache);
+        });
+
+        it('leaves defaults null when Laravel logger/cache are not bound', function () {
+            $app = makeApp();
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            $manager = $app->make(OpcuaManager::class);
+            $loggerRef = new ReflectionProperty($manager, 'defaultLogger');
+            $cacheRef = new ReflectionProperty($manager, 'defaultCache');
+
+            expect($loggerRef->getValue($manager))->toBeNull();
+            expect($cacheRef->getValue($manager))->toBeNull();
+        });
     });
 
     describe('boot', function () {
@@ -120,6 +173,11 @@ describe('OpcuaServiceProvider', function () {
                         'max_sessions' => 100,
                         'socket_mode' => 0600,
                         'allowed_cert_dirs' => null,
+                        'log_file' => null,
+                        'log_level' => 'info',
+                        'cache_driver' => 'memory',
+                        'cache_path' => null,
+                        'cache_ttl' => 300,
                     ],
                     'connections' => [
                         'default' => [

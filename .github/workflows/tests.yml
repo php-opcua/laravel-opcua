@@ -7,18 +7,22 @@ on:
     branches: [ main, master ]
 
 jobs:
-  unit:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        php-version: [ '8.2', '8.3', '8.4' ]
-        laravel-version: [ '11.*', '12.*' ]
+        php-version: [ '8.2', '8.3', '8.4', '8.5' ]
+        laravel-version: [ '11.*', '12.*', '13.*' ]
         exclude:
           - php-version: '8.2'
             laravel-version: '12.*'
+          - php-version: '8.2'
+            laravel-version: '13.*'
+          - php-version: '8.3'
+            laravel-version: '13.*'
 
-    name: Unit — PHP ${{ matrix.php-version }} / Laravel ${{ matrix.laravel-version }}
+    name: PHP ${{ matrix.php-version }} / Laravel ${{ matrix.laravel-version }}
 
     steps:
       - uses: actions/checkout@v6
@@ -28,46 +32,38 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           extensions: openssl, sockets, pcntl
-          coverage: none
+          coverage: ${{ matrix.php-version == '8.5' && matrix.laravel-version == '13.*' && 'xdebug' || 'none' }}
 
       - name: Install Composer dependencies
         run: |
           composer require "illuminate/support:${{ matrix.laravel-version }}" "illuminate/console:${{ matrix.laravel-version }}" "illuminate/contracts:${{ matrix.laravel-version }}" --no-interaction --no-update
           composer install --no-interaction --prefer-dist
 
-      - name: Run unit tests
-        run: vendor/bin/pest tests/Unit
-
-  integration:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php-version: [ '8.2', '8.3', '8.4' ]
-
-    name: Integration — PHP ${{ matrix.php-version }}
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup PHP ${{ matrix.php-version }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php-version }}
-          extensions: openssl, sockets, pcntl
-          coverage: none
-
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
-
       - name: Start OPC UA test servers
         id: opcua
         uses: GianfriAur/opcua-test-server-suite@v1.1.4
 
-      - name: Run integration tests
+      - name: Run tests
         env:
           OPCUA_CERTS_DIR: ${{ steps.opcua.outputs.certs-dir }}
-        run: vendor/bin/pest tests/Integration --group=integration
+        run: vendor/bin/pest --log-junit=results/junit.xml ${{ matrix.php-version == '8.5' && matrix.laravel-version == '13.*' && '--coverage-clover=coverage/clover.xml' || '' }}
+
+      - name: Upload coverage to Codecov
+        if: matrix.php-version == '8.5' && matrix.laravel-version == '13.*'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/clover.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          files: results/junit.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: test-results
+          disable_search: true
 
       - name: Server logs (on failure)
         if: failure()

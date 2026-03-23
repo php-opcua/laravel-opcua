@@ -6,17 +6,27 @@ namespace Gianfriaur\OpcuaLaravel\Commands;
 
 use Gianfriaur\OpcuaSessionManager\Daemon\SessionManagerDaemon;
 use Illuminate\Console\Command;
+use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheInterface;
 
+/**
+ * Artisan command to start the OPC UA session manager daemon.
+ */
 class SessionCommand extends Command
 {
     protected $signature = 'opcua:session
         {--timeout= : Session inactivity timeout in seconds}
         {--cleanup-interval= : Cleanup check interval in seconds}
         {--max-sessions= : Maximum concurrent sessions}
-        {--socket-mode= : Socket file permissions (octal)}';
+        {--socket-mode= : Socket file permissions (octal)}
+        {--log-channel= : Laravel log channel name}
+        {--cache-store= : Laravel cache store name}';
 
     protected $description = 'Start the OPC UA session manager daemon';
 
+    /**
+     * @return int
+     */
     public function handle(): int
     {
         $config = config('opcua.session_manager');
@@ -30,14 +40,19 @@ class SessionCommand extends Command
             : $config['socket_mode'];
 
         $allowedCertDirs = $config['allowed_cert_dirs'];
-
         $authToken = $config['auth_token'];
+
+        $logger = $this->resolveLogger($config);
+        $cache = $this->resolveCache($config);
 
         // Ensure the directory for the socket exists
         $socketDir = dirname($socketPath);
         if (!is_dir($socketDir)) {
             mkdir($socketDir, 0755, true);
         }
+
+        $logChannelName = $this->option('log-channel') ?? $config['log_channel'] ?? 'default';
+        $cacheStoreName = $this->option('cache-store') ?? $config['cache_store'] ?? 'default';
 
         $this->info('Starting OPC UA Session Manager...');
         $this->table(
@@ -50,6 +65,8 @@ class SessionCommand extends Command
                 ['Socket Mode', sprintf('0%o', $socketMode)],
                 ['Auth Token', $authToken ? 'configured' : 'none'],
                 ['Cert Dirs', $allowedCertDirs ? implode(', ', $allowedCertDirs) : 'any'],
+                ['Log Channel', $logChannelName],
+                ['Cache Store', $cacheStoreName],
             ],
         );
 
@@ -61,10 +78,38 @@ class SessionCommand extends Command
             maxSessions: (int) $maxSessions,
             socketMode: $socketMode,
             allowedCertDirs: $allowedCertDirs,
+            logger: $logger,
+            clientCache: $cache,
         );
 
         $daemon->run();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Resolve the PSR-3 logger for the daemon using a Laravel log channel.
+     *
+     * @param array $config
+     * @return LoggerInterface
+     */
+    protected function resolveLogger(array $config): LoggerInterface
+    {
+        $channel = $this->option('log-channel') ?? $config['log_channel'] ?? null;
+
+        return app('log')->channel($channel);
+    }
+
+    /**
+     * Resolve the PSR-16 cache for the daemon using a Laravel cache store.
+     *
+     * @param array $config
+     * @return CacheInterface
+     */
+    protected function resolveCache(array $config): CacheInterface
+    {
+        $store = $this->option('cache-store') ?? $config['cache_store'] ?? null;
+
+        return app('cache')->store($store);
     }
 }

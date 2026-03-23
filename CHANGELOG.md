@@ -1,5 +1,47 @@
 # Changelog
 
+## [3.0.0] - 2026-03-23
+
+### Changed
+
+- **BREAKING:** Updated dependency `gianfriaur/opcua-php-client` from `^2.0.0` to `^3.0.0`.
+- **BREAKING:** Updated dependency `gianfriaur/opcua-php-client-session-manager` from `^2.0.0` to `^3.0.0`.
+- **BREAKING:** Service response methods now return typed DTOs instead of arrays:
+  - `createSubscription()` → `SubscriptionResult` (access via `->subscriptionId`, `->revisedPublishingInterval`, etc.)
+  - `createMonitoredItems()` → `MonitoredItemResult[]` (access via `->statusCode`, `->monitoredItemId`, etc.)
+  - `createEventMonitoredItem()` → `MonitoredItemResult`
+  - `call()` → `CallResult` (access via `->statusCode`, `->outputArguments`, etc.)
+  - `browseWithContinuation()` / `browseNext()` → `BrowseResultSet` (access via `->references`, `->continuationPoint`)
+  - `publish()` → `PublishResult` (access via `->subscriptionId`, `->notifications`, etc.)
+  - `translateBrowsePaths()` → `BrowsePathResult[]` (access via `->statusCode`, `->targets`)
+- **BREAKING:** Browse methods `nodeClassMask: int` parameter changed to `nodeClasses: NodeClass[]`. Use `[NodeClass::Object, NodeClass::Variable]` instead of bitmask integers.
+- **BREAKING:** Named parameters renamed: `readMulti($items)` → `readMulti($readItems)`, `writeMulti($items)` → `writeMulti($writeItems)`, `createMonitoredItems(..., $items)` → `createMonitoredItems(..., $monitoredItems)`.
+- **BREAKING:** Type classes now expose `public readonly` properties. Getter methods are deprecated: `$ref->getNodeId()` → `$ref->nodeId`, `$dv->getStatusCode()` → `$dv->statusCode`, `$dv->getValue()` (convenience method, unchanged), etc.
+- Session manager daemon now uses Laravel log channels and cache stores instead of custom `log_file`/`cache_driver` config keys.
+- `OpcuaServiceProvider` now injects Laravel's default PSR-3 logger and PSR-16 cache into `OpcuaManager` for automatic client configuration.
+
+### Added
+
+- **String NodeId parameters everywhere.** All methods accepting `NodeId` now also accept OPC UA string format: `'i=2259'`, `'ns=2;s=MyNode'`, `'ns=2;i=1001'`.
+- **Fluent Builder API.** `readMulti()`, `writeMulti()`, `createMonitoredItems()`, `translateBrowsePaths()` return a fluent builder when called without arguments.
+- **PSR-3 Logging.** `setLogger()` and `getLogger()` exposed on client instances and via facade. Laravel's logger is injected by default.
+- **PSR-16 Cache.** `setCache()`, `getCache()`, `invalidateCache()`, `flushCache()` for browse result caching. Laravel's cache is injected by default.
+- **Per-call cache control.** `useCache` parameter on `browse()`, `browseAll()`, `getEndpoints()`, `resolveNodeId()`.
+- **Automatic DataType discovery.** `discoverDataTypes()` discovers server-defined structured types and registers dynamic codecs.
+- **Extension object repository.** `getExtensionObjectRepository()` for custom structured type handling.
+- **Subscription transfer.** `transferSubscriptions()` and `republish()` for session recovery.
+- **DataValue factory methods.** `DataValue::ofInt32()`, `DataValue::ofString()`, etc. for convenient value creation.
+- **MockClient for testing.** Drop-in test double via `MockClient::create()` with call recording and handler registration.
+- Config keys `log_channel` and `cache_store` in `session_manager` section for daemon logging/caching via Laravel channels/stores.
+- Artisan command options `--log-channel` and `--cache-store` for `php artisan opcua:session`.
+- Updated `Opcua` facade PHPDoc with all new v3.0 method signatures including `NodeClass[]`, `BrowseResultSet`, `SubscriptionResult`, `CallResult`, `PublishResult`, builder return types, and cache/logger methods.
+- Integration tests for string NodeId, builder API, cache operations, logger, and type discovery.
+
+### Removed
+
+- `buildDaemonCache()` and `buildDaemonLogger()` from `OpcuaManager` (daemon now uses Laravel's log channels and cache stores directly).
+- Config keys `log_file`, `log_level`, `cache_driver`, `cache_path`, `cache_ttl` (replaced by `log_channel` and `cache_store`).
+
 ## [2.0.0] - 2026-03-20
 
 ### Changed

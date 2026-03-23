@@ -173,6 +173,9 @@ final class TestHelper
 
     /**
      * Build an OpcuaManager config for direct mode (no session manager).
+     *
+     * @param array $overrides
+     * @return array
      */
     public static function makeDirectConfig(array $overrides = []): array
     {
@@ -207,6 +210,9 @@ final class TestHelper
 
     /**
      * Build an OpcuaManager config for managed mode (with session manager).
+     *
+     * @param array $overrides
+     * @return array
      */
     public static function makeManagedConfig(array $overrides = []): array
     {
@@ -220,6 +226,9 @@ final class TestHelper
 
     /**
      * Create an OpcuaManager in direct mode.
+     *
+     * @param array $overrides
+     * @return OpcuaManager
      */
     public static function createDirectManager(array $overrides = []): OpcuaManager
     {
@@ -228,6 +237,9 @@ final class TestHelper
 
     /**
      * Create an OpcuaManager in managed mode (daemon must be running).
+     *
+     * @param array $overrides
+     * @return OpcuaManager
      */
     public static function createManagedManager(array $overrides = []): OpcuaManager
     {
@@ -236,6 +248,11 @@ final class TestHelper
 
     // ── Node browsing helpers ──────────────────────────────────────────
 
+    /**
+     * @param OpcUaClientInterface $client
+     * @param array $path
+     * @return NodeId
+     */
     public static function browseToNode(OpcUaClientInterface $client, array $path): NodeId
     {
         $currentNodeId = NodeId::numeric(0, 85);
@@ -245,11 +262,11 @@ final class TestHelper
             $found = false;
 
             foreach ($refs as $ref) {
-                $browseName = $ref->getBrowseName()->getName();
-                $displayName = (string) $ref->getDisplayName();
+                $browseName = $ref->browseName->name;
+                $displayName = (string) $ref->displayName;
 
                 if ($browseName === $name || $displayName === $name) {
-                    $currentNodeId = $ref->getNodeId();
+                    $currentNodeId = $ref->nodeId;
                     $found = true;
                     break;
                 }
@@ -257,7 +274,7 @@ final class TestHelper
 
             if (!$found) {
                 $availableNames = array_map(
-                    fn(ReferenceDescription $r) => $r->getBrowseName()->getName(),
+                    fn(ReferenceDescription $r) => $r->browseName->name,
                     $refs,
                 );
                 throw new \RuntimeException(
@@ -270,10 +287,15 @@ final class TestHelper
         return $currentNodeId;
     }
 
+    /**
+     * @param ReferenceDescription[] $refs
+     * @param string $name
+     * @return ?ReferenceDescription
+     */
     public static function findRefByName(array $refs, string $name): ?ReferenceDescription
     {
         foreach ($refs as $ref) {
-            if ($ref->getBrowseName()->getName() === $name || (string) $ref->getDisplayName() === $name) {
+            if ($ref->browseName->name === $name || (string) $ref->displayName === $name) {
                 return $ref;
             }
         }
@@ -281,6 +303,11 @@ final class TestHelper
         return null;
     }
 
+    /**
+     * @param ?string $connectionName
+     * @param ?OpcuaManager $manager
+     * @return void
+     */
     public static function safeDisconnect(?string $connectionName, ?OpcuaManager $manager): void
     {
         if ($manager === null) {

@@ -56,7 +56,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 expect($results)->toHaveCount(7);
                 foreach ($results as $dv) {
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                 }
             } finally {
                 TestHelper::safeDisconnect('default', $manager);

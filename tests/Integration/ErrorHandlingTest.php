@@ -19,7 +19,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
             try {
                 $client = $manager->connect();
                 $dv = $client->read(NodeId::numeric(99, 99999));
-                expect(StatusCode::isBad($dv->getStatusCode()))->toBeTrue();
+                expect(StatusCode::isBad($dv->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }

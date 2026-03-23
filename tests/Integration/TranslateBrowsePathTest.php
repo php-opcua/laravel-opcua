@@ -22,8 +22,8 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $nodeId = $client->resolveNodeId('/Objects');
 
                 expect($nodeId)->toBeInstanceOf(NodeId::class);
-                expect($nodeId->getIdentifier())->toBe(85);
-                expect($nodeId->getNamespaceIndex())->toBe(0);
+                expect($nodeId->identifier)->toBe(85);
+                expect($nodeId->namespaceIndex)->toBe(0);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -37,8 +37,8 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $nodeId = $client->resolveNodeId('/Objects/Server');
 
                 expect($nodeId)->toBeInstanceOf(NodeId::class);
-                expect($nodeId->getIdentifier())->toBe(2253);
-                expect($nodeId->getNamespaceIndex())->toBe(0);
+                expect($nodeId->identifier)->toBe(2253);
+                expect($nodeId->namespaceIndex)->toBe(0);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -52,7 +52,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $nodeId = $client->resolveNodeId('/Objects/Server/ServerStatus');
 
                 expect($nodeId)->toBeInstanceOf(NodeId::class);
-                expect($nodeId->getIdentifier())->toBe(2256);
+                expect($nodeId->identifier)->toBe(2256);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -81,13 +81,13 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 expect($results)->toHaveCount(2);
 
-                expect(StatusCode::isGood($results[0]['statusCode']))->toBeTrue();
-                expect($results[0]['targets'])->not->toBeEmpty();
-                expect($results[0]['targets'][0]['targetId']->getIdentifier())->toBe(85);
+                expect(StatusCode::isGood($results[0]->statusCode))->toBeTrue();
+                expect($results[0]->targets)->not->toBeEmpty();
+                expect($results[0]->targets[0]->targetId->identifier)->toBe(85);
 
-                expect(StatusCode::isGood($results[1]['statusCode']))->toBeTrue();
-                expect($results[1]['targets'])->not->toBeEmpty();
-                expect($results[1]['targets'][0]['targetId']->getIdentifier())->toBe(2253);
+                expect(StatusCode::isGood($results[1]->statusCode))->toBeTrue();
+                expect($results[1]->targets)->not->toBeEmpty();
+                expect($results[1]->targets[0]->targetId->identifier)->toBe(2253);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -102,7 +102,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 expect($testServerNodeId)->toBeInstanceOf(NodeId::class);
 
                 $refs = $client->browse($testServerNodeId);
-                $names = array_map(fn($r) => $r->getBrowseName()->getName(), $refs);
+                $names = array_map(fn($r) => $r->browseName->name, $refs);
                 expect($names)->toContain('DataTypes');
                 expect($names)->toContain('Methods');
             } finally {

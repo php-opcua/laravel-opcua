@@ -35,6 +35,14 @@ return [
         'max_sessions' => env('OPCUA_MAX_SESSIONS', 100),
         'socket_mode' => 0600,
         'allowed_cert_dirs' => null,
+
+        // Daemon logging — uses a Laravel log channel.
+        // Falls back to Laravel's default channel when not specified.
+        'log_channel' => env('OPCUA_LOG_CHANNEL', env('LOG_CHANNEL', 'stack')),
+
+        // Daemon client cache — uses a Laravel cache store.
+        // Falls back to Laravel's default cache store when not specified.
+        'cache_store' => env('OPCUA_CACHE_STORE', env('CACHE_STORE', 'file')),
     ],
 
     /*

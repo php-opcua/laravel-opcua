@@ -51,13 +51,13 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
             try {
                 $client = $manager->connect();
                 $dv1 = $client->read(NodeId::numeric(0, 2259));
-                expect($dv1->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv1->statusCode)->toBe(StatusCode::Good);
 
                 $client->reconnect();
 
                 expect($client->isConnected())->toBeTrue();
                 $dv2 = $client->read(NodeId::numeric(0, 2259));
-                expect($dv2->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv2->statusCode)->toBe(StatusCode::Good);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }

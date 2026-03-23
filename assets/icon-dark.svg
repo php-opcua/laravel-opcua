@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A80" />
+      <stop offset="50%" stop-color="#FF4433" />
+      <stop offset="100%" stop-color="#FF2D20" />
+    </linearGradient>
+    <linearGradient id="node" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFAB91" />
+      <stop offset="100%" stop-color="#FF4433" />
+    </linearGradient>
+    <linearGradient id="line" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF4433" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#FF8A80" stop-opacity="0.7" />
+    </linearGradient>
+    <mask id="ringMask" maskContentUnits="userSpaceOnUse">
+      <rect x="-100" y="-100" width="500" height="500" fill="white" />
+      <circle cx="44" cy="44" r="13" fill="black" />
+    </mask>
+  </defs>
+
+  <g transform="translate(16, 16)">
+    <!-- Connection lines -->
+    <line x1="60" y1="32" x2="80" y2="16" stroke="url(#line)" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="60" y1="56" x2="80" y2="72" stroke="url(#line)" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="28" y1="32" x2="8" y2="16" stroke="url(#line)" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="28" y1="56" x2="8" y2="72" stroke="url(#line)" stroke-width="2.5" stroke-linecap="round" />
+
+    <!-- Central ring (hollow — inner circle is transparent) -->
+    <circle cx="44" cy="44" r="22" fill="url(#brand)" mask="url(#ringMask)" />
+
+    <!-- Outer nodes -->
+    <circle cx="82" cy="14" r="7" fill="url(#node)" />
+    <circle cx="82" cy="74" r="7" fill="url(#node)" />
+    <circle cx="6" cy="14" r="7" fill="url(#node)" />
+    <circle cx="6" cy="74" r="7" fill="url(#node)" />
+
+    <!-- Laravel flame icon (centered at 44,44, scaled to fit inside ring) -->
+    <g transform="translate(35, 35) scale(0.72)">
+      <path d="M23.642 5.43a.364.364 0 0 1 .014.1v5.149c0 .135-.073.26-.189.326l-4.323 2.49v4.934a.378.378 0 0 1-.188.326L9.93 23.95a.316.316 0 0 1-.066.027c-.008.002-.016.008-.024.01a.348.348 0 0 1-.192 0c-.011-.002-.02-.008-.03-.012a.263.263 0 0 1-.064-.026L.528 18.755a.378.378 0 0 1-.189-.326V5.53a.36.36 0 0 1 .014-.1c.003-.012.01-.02.014-.032a.37.37 0 0 1 .023-.058c.004-.013.015-.022.023-.033l.033-.045c.012-.01.025-.018.037-.027.014-.009.024-.02.038-.027L4.898 2.76a.375.375 0 0 1 .377 0l4.377 2.45c.013.008.024.018.037.027a.336.336 0 0 1 .038.027l.032.045c.008.011.02.02.024.033a.298.298 0 0 1 .023.058c.005.011.012.021.015.032a.361.361 0 0 1 .014.1v9.652l3.76-2.164V7.896a.35.35 0 0 1 .013-.1c.004-.013.01-.022.015-.033a.352.352 0 0 1 .023-.058c.004-.012.015-.021.023-.032a.387.387 0 0 1 .033-.045.35.35 0 0 1 .037-.028c.013-.009.024-.02.038-.027l4.377-2.45a.376.376 0 0 1 .377 0l4.378 2.45c.013.007.023.018.036.027.013.01.027.018.038.028l.032.044c.009.012.02.021.024.033.01.017.016.037.023.058.005.012.012.021.015.033zm-.74 5.032V5.86l-1.58.91-2.18 1.253v4.603l3.76-2.164zm-4.134 7.088V12.9l-2.145 1.228-6.048 3.463v4.68l8.193-4.718zM1.087 6.19v12.07l8.192 4.718v-4.68L4.955 15.87l-.003-.002-.003-.002a.31.31 0 0 1-.036-.026c-.013-.01-.024-.02-.035-.03l-.024-.033a.296.296 0 0 1-.024-.034c-.008-.015-.012-.032-.018-.048-.004-.014-.012-.025-.014-.04a.392.392 0 0 1-.01-.085V7.354L2.667 6.1l-1.58-.91z" fill="url(#brand)" />
+    </g>
+  </g>
+</svg>

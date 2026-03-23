@@ -37,7 +37,7 @@ describe('Connection via OpcuaManager (direct mode)', function () {
         try {
             $client = $manager->connect();
             $dv = $client->read(NodeId::numeric(0, 2259));
-            expect($dv->getStatusCode())->toBe(StatusCode::Good);
+            expect($dv->statusCode)->toBe(StatusCode::Good);
             expect($dv->getValue())->toBeInt()->toBe(0);
         } finally {
             TestHelper::safeDisconnect('default', $manager);
@@ -175,7 +175,7 @@ describe('Connection via OpcuaManager (direct mode)', function () {
         try {
             $client = $manager->connect();
             $dv = $client->read(NodeId::numeric(0, 2259));
-            expect($dv->getStatusCode())->toBe(StatusCode::Good);
+            expect($dv->statusCode)->toBe(StatusCode::Good);
         } finally {
             TestHelper::safeDisconnect('default', $manager);
         }
@@ -205,7 +205,7 @@ describe('Connection via OpcuaManager (managed mode)', function () {
         try {
             $client = $manager->connect();
             $dv = $client->read(NodeId::numeric(0, 2259));
-            expect($dv->getStatusCode())->toBe(StatusCode::Good);
+            expect($dv->statusCode)->toBe(StatusCode::Good);
             expect($dv->getValue())->toBeInt()->toBe(0);
         } finally {
             TestHelper::safeDisconnect('default', $manager);

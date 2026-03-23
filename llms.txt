@@ -1,0 +1,92 @@
+# OPC UA Laravel Client
+
+> Laravel integration for OPC UA built on opcua-php-client and opcua-php-client-session-manager. Provides a Facade, .env-based configuration, named connections, and an Artisan command for the session manager daemon.
+
+## Use Cases
+
+- Read and write process variables from PLCs, SCADA systems, sensors via a Laravel Facade
+- Browse OPC UA address spaces and resolve paths from Laravel controllers, jobs, or commands
+- Subscribe to data changes and events with session persistence across HTTP requests
+- Call methods on OPC UA servers from a Laravel application
+- Query historical data (raw, processed, at-time) from historians
+
+## Key Features
+
+- Facade (`Opcua::read()`, `Opcua::browse()`, etc.) with full IDE autocompletion
+- Named connections — define multiple OPC UA servers in config/opcua.php
+- Ad-hoc connections — Opcua::connectTo() for runtime endpoints
+- Transparent session management — daemon available → ManagedClient; not → direct Client
+- String NodeIds everywhere — 'i=2259', 'ns=2;s=MyNode'
+- Fluent Builder API — readMulti(), writeMulti(), createMonitoredItems(), translateBrowsePaths()
+- PSR-3 Logging — Laravel log channel injected automatically
+- PSR-16 Caching — Laravel cache store injected automatically, per-call useCache
+- Type Discovery — discoverDataTypes() for server-defined structured types
+- Subscription Transfer — transferSubscriptions() / republish() for session recovery
+- MockClient for testing — register handlers, assert calls, no server needed
+- Timeout, auto-retry, automatic batching via config or fluent API
+- Recursive browsing with depth control and cycle detection
+- Path resolution — resolveNodeId('/Objects/Server/ServerStatus')
+- 6 security policies, 3 auth modes, auto-generated certificates
+- Historical data — raw, processed, and at-time queries
+- All service responses return typed DTOs (SubscriptionResult, CallResult, BrowseResultSet, etc.)
+
+## Installation
+
+```bash
+composer require gianfriaur/opcua-laravel-client
+```
+
+## Quick Example
+
+```php
+use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+
+$client = Opcua::connect();
+$value = $client->read('i=2259');
+echo $value->getValue(); // 0 = Running
+$client->disconnect();
+```
+
+## Fluent Builder API
+
+```php
+$results = $client->readMulti()
+    ->node('i=2259')->value()
+    ->node('ns=2;i=1001')->displayName()
+    ->execute();
+```
+
+## Session Manager
+
+```bash
+php artisan opcua:session --log-channel=stack --cache-store=redis
+```
+
+## Main Classes
+
+- Gianfriaur\OpcuaLaravel\OpcuaManager — connection management, client creation, configuration
+- Gianfriaur\OpcuaLaravel\Facades\Opcua — static Facade with full PHPDoc
+- Gianfriaur\OpcuaLaravel\OpcuaServiceProvider — service container registration
+- Gianfriaur\OpcuaLaravel\Commands\SessionCommand — Artisan command for daemon
+
+## Related Packages
+
+- gianfriaur/opcua-php-client — Pure PHP OPC UA client (core protocol)
+- gianfriaur/opcua-php-client-session-manager — Daemon-based session persistence
+- opcua-test-server-suite — Docker-based OPC UA test servers
+
+## Requirements
+
+- PHP >= 8.2
+- ext-openssl
+- Laravel 11.x or 12.x
+
+## License
+
+MIT
+
+## Links
+
+- Repository: https://github.com/GianfriAur/opcua-laravel-client
+- Packagist: https://packagist.org/packages/gianfriaur/opcua-laravel-client
+- Documentation: https://github.com/GianfriAur/opcua-laravel-client/tree/master/doc

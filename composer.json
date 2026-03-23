@@ -11,16 +11,16 @@
     ],
     "require": {
         "php": "^8.2",
-        "gianfriaur/opcua-php-client": "^2.0.0",
-        "gianfriaur/opcua-php-client-session-manager": "^2.0.0",
-        "illuminate/support": "^11.0|^12.0",
-        "illuminate/console": "^11.0|^12.0",
-        "illuminate/contracts": "^11.0|^12.0"
+        "gianfriaur/opcua-php-client": "^3.0.0",
+        "gianfriaur/opcua-php-client-session-manager": "^3.0.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/console": "^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^11.0|^12.0|^13.0"
     },
     "require-dev": {
         "pestphp/pest": "^3.0",
         "mockery/mockery": "^1.6",
-        "illuminate/config": "^11.0|^12.0",
+        "illuminate/config": "^11.0|^12.0|^13.0",
         "vlucas/phpdotenv": "^5.0"
     },
     "autoload": {

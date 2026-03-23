@@ -6,7 +6,12 @@ namespace Gianfriaur\OpcuaLaravel;
 
 use Gianfriaur\OpcuaLaravel\Commands\SessionCommand;
 use Illuminate\Support\ServiceProvider;
+use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheInterface;
 
+/**
+ * Registers OPC UA services into the Laravel container.
+ */
 class OpcuaServiceProvider extends ServiceProvider
 {
     public function register(): void
@@ -14,7 +19,19 @@ class OpcuaServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/../config/opcua.php', 'opcua');
 
         $this->app->singleton(OpcuaManager::class, function ($app) {
-            return new OpcuaManager($app['config']['opcua']);
+            $logger = $app->bound(LoggerInterface::class)
+                ? $app->make(LoggerInterface::class)
+                : null;
+
+            $cache = $app->bound(CacheInterface::class)
+                ? $app->make(CacheInterface::class)
+                : null;
+
+            return new OpcuaManager(
+                $app['config']['opcua'],
+                $logger,
+                $cache,
+            );
         });
 
         $this->app->alias(OpcuaManager::class, 'opcua');

@@ -7,6 +7,9 @@ use Gianfriaur\OpcuaPhpClient\Client;
 use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
 use Gianfriaur\OpcuaPhpClient\Security\SecurityMode;
 use Gianfriaur\OpcuaPhpClient\Security\SecurityPolicy;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Psr\SimpleCache\CacheInterface;
 
 function makeConfig(array $overrides = []): array
 {
@@ -560,6 +563,98 @@ describe('OpcuaManager', function () {
                 'batch_size' => 50,
                 'browse_max_depth' => 15,
             ]);
+        });
+    });
+
+    describe('configureClient v3.0 options', function () {
+
+        it('applies explicit logger from config', function () {
+            $logger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setLogger')->once()->with($logger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, ['logger' => $logger]);
+        });
+
+        it('applies default logger when no explicit logger in config', function () {
+            $logger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $logger);
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setLogger')->once()->with($logger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('does not call setLogger when no logger available', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldNotReceive('setLogger');
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('applies explicit cache from config', function () {
+            $cache = Mockery::mock(CacheInterface::class);
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setCache')->once()->with($cache)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, ['cache' => $cache]);
+        });
+
+        it('applies null cache from config to disable caching', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setCache')->once()->with(null)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, ['cache' => null]);
+        });
+
+        it('applies default cache when no explicit cache in config', function () {
+            $cache = Mockery::mock(CacheInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultCache: $cache);
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setCache')->once()->with($cache)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('does not call setCache when no cache available', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldNotReceive('setCache');
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('explicit config logger takes precedence over default', function () {
+            $defaultLogger = Mockery::mock(LoggerInterface::class);
+            $explicitLogger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger);
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setLogger')->once()->with($explicitLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, ['logger' => $explicitLogger]);
+        });
+
+        it('explicit config cache takes precedence over default', function () {
+            $defaultCache = Mockery::mock(CacheInterface::class);
+            $explicitCache = Mockery::mock(CacheInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultCache: $defaultCache);
+            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock->shouldReceive('setCache')->once()->with($explicitCache)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureClient');
+            $method->invoke($manager, $mock, ['cache' => $explicitCache]);
         });
     });
 

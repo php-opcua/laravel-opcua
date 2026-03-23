@@ -23,7 +23,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'BooleanValue']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeBool();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -36,7 +36,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'Int32Value']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeInt();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -49,7 +49,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'DoubleValue']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeFloat();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -62,7 +62,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'StringValue']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeString();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -75,7 +75,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'FloatValue']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeFloat();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -88,7 +88,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'ByteValue']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeInt();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -101,7 +101,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Scalar', 'UInt16Value']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeInt();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -129,11 +129,11 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     ]);
 
                     expect($results)->toHaveCount(3);
-                    expect($results[0]->getStatusCode())->toBe(StatusCode::Good);
+                    expect($results[0]->statusCode)->toBe(StatusCode::Good);
                     expect($results[0]->getValue())->toBeBool();
-                    expect($results[1]->getStatusCode())->toBe(StatusCode::Good);
+                    expect($results[1]->statusCode)->toBe(StatusCode::Good);
                     expect($results[1]->getValue())->toBeInt();
-                    expect($results[2]->getStatusCode())->toBe(StatusCode::Good);
+                    expect($results[2]->statusCode)->toBe(StatusCode::Good);
                     expect($results[2]->getValue())->toBeString();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -151,7 +151,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 try {
                     $client = $manager->connect();
                     $dv = $client->read(NodeId::numeric(0, 2259));
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBe(0);
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -170,7 +170,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Array', 'Int32Array']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeArray()->not->toBeEmpty();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -183,7 +183,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'Array', 'StringArray']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeArray()->not->toBeEmpty();
                 } finally {
                     TestHelper::safeDisconnect('default', $manager);
@@ -202,7 +202,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                     $client = $manager->connect();
                     $nodeId = TestHelper::browseToNode($client, ['TestServer', 'DataTypes', 'WithRange', 'Temperature']);
                     $dv = $client->read($nodeId);
-                    expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                    expect($dv->statusCode)->toBe(StatusCode::Good);
                     expect($dv->getValue())->toBeFloat();
                     expect($dv->getValue())->toBeGreaterThan(20.0)->toBeLessThan(25.0);
                 } finally {

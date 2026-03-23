@@ -28,7 +28,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 expect($client->getTimeout())->toBe(15.0);
 
                 $dv = $client->read(NodeId::numeric(0, 2259));
-                expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv->statusCode)->toBe(StatusCode::Good);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -57,7 +57,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client->connect($endpoint);
 
                 $dv = $client->read(NodeId::numeric(0, 2259));
-                expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv->statusCode)->toBe(StatusCode::Good);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }

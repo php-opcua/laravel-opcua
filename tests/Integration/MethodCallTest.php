@@ -25,15 +25,15 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $result = $client->call(
                     $methodsNodeId,
-                    $addRef->getNodeId(),
+                    $addRef->nodeId,
                     [
                         new Variant(BuiltinType::Double, 3.0),
                         new Variant(BuiltinType::Double, 4.0),
                     ],
                 );
 
-                expect($result['statusCode'])->toBeInt();
-                expect(StatusCode::isGood($result['statusCode']))->toBeTrue();
+                expect($result->statusCode)->toBeInt();
+                expect(StatusCode::isGood($result->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -50,14 +50,14 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $result = $client->call(
                     $methodsNodeId,
-                    $mulRef->getNodeId(),
+                    $mulRef->nodeId,
                     [
                         new Variant(BuiltinType::Double, 5.0),
                         new Variant(BuiltinType::Double, 6.0),
                     ],
                 );
 
-                expect(StatusCode::isGood($result['statusCode']))->toBeTrue();
+                expect(StatusCode::isGood($result->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -74,14 +74,14 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $result = $client->call(
                     $methodsNodeId,
-                    $concatRef->getNodeId(),
+                    $concatRef->nodeId,
                     [
                         new Variant(BuiltinType::String, 'hello'),
                         new Variant(BuiltinType::String, ' world'),
                     ],
                 );
 
-                expect(StatusCode::isGood($result['statusCode']))->toBeTrue();
+                expect(StatusCode::isGood($result->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -98,11 +98,11 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $result = $client->call(
                     $methodsNodeId,
-                    $reverseRef->getNodeId(),
+                    $reverseRef->nodeId,
                     [new Variant(BuiltinType::String, 'abcdef')],
                 );
 
-                expect(StatusCode::isGood($result['statusCode']))->toBeTrue();
+                expect(StatusCode::isGood($result->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -119,11 +119,11 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $result = $client->call(
                     $methodsNodeId,
-                    $echoRef->getNodeId(),
+                    $echoRef->nodeId,
                     [new Variant(BuiltinType::Int32, 42)],
                 );
 
-                expect(StatusCode::isGood($result['statusCode']))->toBeTrue();
+                expect(StatusCode::isGood($result->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -140,11 +140,11 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $result = $client->call(
                     $methodsNodeId,
-                    $failRef->getNodeId(),
+                    $failRef->nodeId,
                     [],
                 );
 
-                expect(StatusCode::isBad($result['statusCode']))->toBeTrue();
+                expect(StatusCode::isBad($result->statusCode))->toBeTrue();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }

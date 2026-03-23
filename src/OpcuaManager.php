@@ -9,18 +9,35 @@ use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
 use Gianfriaur\OpcuaPhpClient\Security\SecurityMode;
 use Gianfriaur\OpcuaPhpClient\Security\SecurityPolicy;
 use Gianfriaur\OpcuaSessionManager\Client\ManagedClient;
+use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheInterface;
 
+/**
+ * Manages OPC UA client connections within a Laravel application.
+ *
+ * @see OpcUaClientInterface
+ */
 class OpcuaManager
 {
     /** @var array<string, OpcUaClientInterface> */
     protected array $connections = [];
 
+    /**
+     * @param array $config
+     * @param ?LoggerInterface $defaultLogger
+     * @param ?CacheInterface $defaultCache
+     */
     public function __construct(
         protected array $config,
+        protected ?LoggerInterface $defaultLogger = null,
+        protected ?CacheInterface $defaultCache = null,
     ) {}
 
     /**
      * Get an OPC UA client connection by name.
+     *
+     * @param ?string $name
+     * @return OpcUaClientInterface
      */
     public function connection(?string $name = null): OpcUaClientInterface
     {
@@ -35,6 +52,8 @@ class OpcuaManager
 
     /**
      * Get the default connection name.
+     *
+     * @return string
      */
     public function getDefaultConnection(): string
     {
@@ -43,6 +62,11 @@ class OpcuaManager
 
     /**
      * Create a new connection instance.
+     *
+     * @param string $name
+     * @return OpcUaClientInterface
+     *
+     * @throws \InvalidArgumentException
      */
     protected function makeConnection(string $name): OpcUaClientInterface
     {
@@ -60,6 +84,8 @@ class OpcuaManager
 
     /**
      * Create the appropriate client based on session manager availability.
+     *
+     * @return OpcUaClientInterface
      */
     protected function createClient(): OpcUaClientInterface
     {
@@ -78,6 +104,9 @@ class OpcuaManager
 
     /**
      * Determine if the session manager daemon is available and should be used.
+     *
+     * @param array $smConfig
+     * @return bool
      */
     protected function shouldUseSessionManager(array $smConfig): bool
     {
@@ -96,6 +125,10 @@ class OpcuaManager
 
     /**
      * Apply connection configuration to a client.
+     *
+     * @param OpcUaClientInterface $client
+     * @param array $config
+     * @return void
      */
     protected function configureClient(OpcUaClientInterface $client, array $config): void
     {
@@ -154,10 +187,31 @@ class OpcuaManager
         if (isset($config['browse_max_depth']) && $config['browse_max_depth'] !== null) {
             $client->setDefaultBrowseMaxDepth((int) $config['browse_max_depth']);
         }
+
+        // Logger (PSR-3): explicit config > Laravel default
+        if (isset($config['logger']) && $config['logger'] instanceof LoggerInterface) {
+            $client->setLogger($config['logger']);
+        } elseif ($this->defaultLogger !== null) {
+            $client->setLogger($this->defaultLogger);
+        }
+
+        // Cache (PSR-16): explicit config > Laravel default
+        if (array_key_exists('cache', $config)) {
+            if ($config['cache'] instanceof CacheInterface) {
+                $client->setCache($config['cache']);
+            } elseif ($config['cache'] === null) {
+                $client->setCache(null);
+            }
+        } elseif ($this->defaultCache !== null) {
+            $client->setCache($this->defaultCache);
+        }
     }
 
     /**
      * Resolve a security policy name or URI to the full URI.
+     *
+     * @param string $policy
+     * @return string
      */
     protected function resolveSecurityPolicyUri(string $policy): string
     {
@@ -175,6 +229,9 @@ class OpcuaManager
 
     /**
      * Resolve a security mode name or int to a SecurityMode enum.
+     *
+     * @param string|int $mode
+     * @return SecurityMode
      */
     protected function resolveSecurityMode(string|int $mode): SecurityMode
     {
@@ -199,6 +256,7 @@ class OpcuaManager
      * @param string $endpointUrl  The OPC UA endpoint URL (e.g. opc.tcp://host:4840)
      * @param array  $config       Optional connection config (same keys as a connection entry)
      * @param string|null $as      Optional name to store the connection under for later retrieval
+     * @return OpcUaClientInterface
      */
     public function connectTo(string $endpointUrl, array $config = [], ?string $as = null): OpcUaClientInterface
     {
@@ -214,6 +272,9 @@ class OpcuaManager
 
     /**
      * Connect a named connection to its endpoint.
+     *
+     * @param ?string $name
+     * @return OpcUaClientInterface
      */
     public function connect(?string $name = null): OpcUaClientInterface
     {
@@ -228,6 +289,9 @@ class OpcuaManager
 
     /**
      * Disconnect a named connection.
+     *
+     * @param ?string $name
+     * @return void
      */
     public function disconnect(?string $name = null): void
     {
@@ -241,6 +305,8 @@ class OpcuaManager
 
     /**
      * Disconnect all connections.
+     *
+     * @return void
      */
     public function disconnectAll(): void
     {
@@ -251,6 +317,8 @@ class OpcuaManager
 
     /**
      * Check if the session manager daemon is currently running.
+     *
+     * @return bool
      */
     public function isSessionManagerRunning(): bool
     {
@@ -261,6 +329,10 @@ class OpcuaManager
 
     /**
      * Dynamically proxy methods to the default connection.
+     *
+     * @param string $method
+     * @param array $parameters
+     * @return mixed
      */
     public function __call(string $method, array $parameters): mixed
     {

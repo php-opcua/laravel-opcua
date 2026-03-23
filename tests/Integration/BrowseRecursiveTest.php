@@ -25,7 +25,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 expect($refs)->toBeArray()->not->toBeEmpty();
                 expect($refs[0])->toBeInstanceOf(ReferenceDescription::class);
 
-                $names = array_map(fn($r) => $r->getBrowseName()->getName(), $refs);
+                $names = array_map(fn($r) => $r->browseName->name, $refs);
                 expect($names)->toContain('Server');
                 expect($names)->toContain('TestServer');
             } finally {
@@ -43,7 +43,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 expect($refs)->toBeArray()->not->toBeEmpty();
                 foreach ($refs as $ref) {
-                    expect($ref->isForward())->toBeFalse();
+                    expect($ref->isForward)->toBeFalse();
                 }
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
@@ -67,14 +67,14 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 $dataTypesNode = null;
                 foreach ($tree as $node) {
-                    if ($node->getBrowseName()->getName() === 'DataTypes') {
+                    if ($node->reference->browseName->name === 'DataTypes') {
                         $dataTypesNode = $node;
                         break;
                     }
                 }
 
                 expect($dataTypesNode)->not->toBeNull();
-                expect($dataTypesNode->hasChildren())->toBeTrue();
+                expect($dataTypesNode->children)->not->toBeEmpty();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
@@ -91,7 +91,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 expect($tree)->toBeArray()->not->toBeEmpty();
 
                 foreach ($tree as $node) {
-                    expect($node->hasChildren())->toBeFalse();
+                    expect($node->children)->toBeEmpty();
                 }
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
@@ -126,7 +126,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
 
                 expect($tree)->toBeArray()->not->toBeEmpty();
 
-                $names = array_map(fn(BrowseNode $n) => $n->getBrowseName()->getName(), $tree);
+                $names = array_map(fn(BrowseNode $n) => $n->reference->browseName->name, $tree);
                 expect($names)->toContain('Add');
                 expect($names)->toContain('Multiply');
             } finally {

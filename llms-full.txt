@@ -1,0 +1,251 @@
+# OPC UA Laravel Client — Full Reference
+
+> Laravel integration for OPC UA built on opcua-php-client and opcua-php-client-session-manager.
+
+## Package Metadata
+
+- Repository: https://github.com/GianfriAur/opcua-laravel-client
+- Packagist: https://packagist.org/packages/gianfriaur/opcua-laravel-client
+- License: MIT
+- PHP: >= 8.2
+- Laravel: 11.x, 12.x
+- Dependencies: gianfriaur/opcua-php-client ^3.0.0, gianfriaur/opcua-php-client-session-manager ^3.0.0, illuminate/support, illuminate/console, illuminate/contracts
+
+## Architecture
+
+OpcuaManager checks for the session manager daemon's Unix socket at connection time. If present, ManagedClient (daemon-proxied) is created. Otherwise, a direct Client (new TCP per request) is used. The switch is transparent.
+
+```
+HTTP Request → Opcua::connect()
+  ├── socket exists? → ManagedClient (IPC to daemon → TCP to OPC UA server)
+  └── socket missing? → Client (direct TCP to OPC UA server)
+```
+
+## Installation
+
+```bash
+composer require gianfriaur/opcua-laravel-client
+php artisan vendor:publish --tag=opcua-config
+```
+
+## Configuration (config/opcua.php)
+
+Three sections: default connection name, session_manager, connections.
+
+### Session Manager Config
+
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| enabled | OPCUA_SESSION_MANAGER_ENABLED | true | Enable daemon auto-detection |
+| socket_path | OPCUA_SOCKET_PATH | storage/app/opcua-session-manager.sock | Unix socket path |
+| timeout | OPCUA_SESSION_TIMEOUT | 600 | Session inactivity timeout (seconds) |
+| cleanup_interval | OPCUA_CLEANUP_INTERVAL | 30 | Cleanup check interval |
+| auth_token | OPCUA_AUTH_TOKEN | null | Shared secret for IPC |
+| max_sessions | OPCUA_MAX_SESSIONS | 100 | Max concurrent sessions |
+| socket_mode | — | 0600 | Socket permissions |
+| allowed_cert_dirs | — | null | Certificate directory whitelist |
+| log_channel | OPCUA_LOG_CHANNEL | Laravel default | Daemon log channel |
+| cache_store | OPCUA_CACHE_STORE | Laravel default | Daemon cache store |
+
+### Connection Config
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| endpoint | opc.tcp://localhost:4840 | Server URL |
+| security_policy | None | None, Basic128Rsa15, Basic256, Basic256Sha256, Aes128Sha256RsaOaep, Aes256Sha256RsaPss |
+| security_mode | None | None, Sign, SignAndEncrypt |
+| username / password | null | User authentication |
+| client_certificate / client_key | null | Client cert (auto-generated if omitted) |
+| ca_certificate | null | CA for server validation |
+| user_certificate / user_key | null | X.509 auth |
+| timeout | 5.0 | Network timeout (seconds) |
+| auto_retry | null | Max reconnection retries |
+| batch_size | null | Max items per batch |
+| browse_max_depth | 10 | Default browseRecursive depth |
+
+## OpcuaManager API
+
+### Connection Management
+
+- connection(?string $name = null): OpcUaClientInterface — get/cache client by name
+- connect(?string $name = null): OpcUaClientInterface — connect named connection
+- connectTo(string $endpointUrl, array $config = [], ?string $as = null): OpcUaClientInterface — ad-hoc
+- disconnect(?string $name = null): void — disconnect and remove from cache
+- disconnectAll(): void — disconnect all tracked connections
+- getDefaultConnection(): string — default connection name
+- isSessionManagerRunning(): bool — check if daemon socket exists
+
+### Proxied Methods (via __call to default connection)
+
+All OpcUaClientInterface methods are proxied: read, readMulti, write, writeMulti, browse, browseAll, browseRecursive, browseWithContinuation, browseNext, resolveNodeId, translateBrowsePaths, call, createSubscription, createMonitoredItems, createEventMonitoredItem, deleteMonitoredItems, deleteSubscription, publish, transferSubscriptions, republish, historyReadRaw, historyReadProcessed, historyReadAtTime, getEndpoints, discoverDataTypes, connect, disconnect, reconnect, isConnected, getConnectionState, setTimeout, getTimeout, setAutoRetry, getAutoRetry, setBatchSize, getBatchSize, getServerMaxNodesPerRead, getServerMaxNodesPerWrite, setDefaultBrowseMaxDepth, getDefaultBrowseMaxDepth, setLogger, getLogger, setCache, getCache, invalidateCache, flushCache, getExtensionObjectRepository.
+
+## Facade (Opcua)
+
+Static access to OpcuaManager with full PHPDoc for IDE autocompletion. Resolves to OpcuaManager::class.
+
+## OpcuaServiceProvider
+
+- Merges config/opcua.php
+- Registers OpcuaManager singleton with Laravel's logger and cache injected
+- Creates 'opcua' alias
+- Registers SessionCommand in console mode
+- Publishes config with tag 'opcua-config'
+
+## SessionCommand (php artisan opcua:session)
+
+Options: --timeout, --cleanup-interval, --max-sessions, --socket-mode, --log-channel, --cache-store
+
+Resolves logger via app('log')->channel($channel) and cache via app('cache')->store($store). Creates SessionManagerDaemon and runs it.
+
+## Reading Values
+
+```php
+$dv = $client->read('i=2259');
+echo $dv->getValue();     // scalar value
+echo $dv->statusCode;     // int (0 = Good)
+echo $dv->sourceTimestamp; // ?DateTimeImmutable
+```
+
+All methods accept string NodeIds: 'i=2259', 'ns=2;i=1001', 'ns=2;s=MyNode'.
+
+### readMulti — array or builder
+
+```php
+// Array
+$results = $client->readMulti([['nodeId' => 'i=2259']]);
+
+// Builder
+$results = $client->readMulti()->node('i=2259')->value()->execute();
+```
+
+## Writing Values
+
+```php
+$status = $client->write('ns=2;i=1001', 42, BuiltinType::Int32);
+```
+
+### writeMulti — array or builder
+
+```php
+$results = $client->writeMulti()->node('ns=2;i=1001')->int32(42)->execute();
+```
+
+## Browsing
+
+```php
+$refs = $client->browse('i=85'); // ReferenceDescription[]
+$refs = $client->browse('i=85', nodeClasses: [NodeClass::Variable]); // filter
+$refs = $client->browse('i=85', useCache: false); // skip cache
+$allRefs = $client->browseAll('i=85');
+$tree = $client->browseRecursive('i=85', maxDepth: 3); // BrowseNode[]
+$nodeId = $client->resolveNodeId('/Objects/Server/ServerStatus');
+```
+
+ReferenceDescription properties: nodeId, browseName, displayName, nodeClass, isForward, referenceTypeId, typeDefinition.
+BrowseNode properties: reference (ReferenceDescription), children (BrowseNode[]).
+
+## Method Calls
+
+```php
+$result = $client->call('i=85', 'ns=2;i=5000', [new Variant(BuiltinType::Double, 3.0)]);
+// CallResult: statusCode, inputArgumentResults, outputArguments
+```
+
+## Subscriptions
+
+```php
+$sub = $client->createSubscription(500.0);
+// SubscriptionResult: subscriptionId, revisedPublishingInterval, revisedLifetimeCount, revisedMaxKeepAliveCount
+
+$monitored = $client->createMonitoredItems($sub->subscriptionId, [...]);
+// MonitoredItemResult[]: statusCode, monitoredItemId, revisedSamplingInterval, revisedQueueSize
+
+$pub = $client->publish();
+// PublishResult: subscriptionId, sequenceNumber, moreNotifications, notifications, availableSequenceNumbers
+
+$client->deleteSubscription($sub->subscriptionId);
+
+// Session recovery
+$results = $client->transferSubscriptions([$subId]); // TransferResult[]
+$result = $client->republish($subId, $seqNum); // array
+```
+
+## History Read
+
+```php
+$values = $client->historyReadRaw('ns=2;i=1001', $start, $end); // DataValue[]
+$values = $client->historyReadProcessed('ns=2;i=1001', $start, $end, 60000.0, $aggregateType);
+$values = $client->historyReadAtTime('ns=2;i=1001', [$t1, $t2, $t3]);
+```
+
+## Cache
+
+```php
+$client->setCache(new InMemoryCache(300)); // or Laravel's cache
+$client->setCache(null);                   // disable
+$client->invalidateCache('i=85');          // clear one node
+$client->flushCache();                     // clear all
+$client->browse('i=85', useCache: false);  // skip per-call
+```
+
+## Logging
+
+```php
+$client->setLogger($myLogger);  // any PSR-3 logger
+$client->getLogger();           // current logger
+```
+
+Laravel's default logger is injected automatically by the service provider.
+
+## Type Discovery
+
+```php
+$count = $client->discoverDataTypes(); // int
+$count = $client->discoverDataTypes(namespaceIndex: 2);
+$repo = $client->getExtensionObjectRepository();
+```
+
+## Security
+
+6 policies: None, Basic128Rsa15, Basic256, Basic256Sha256, Aes128Sha256RsaOaep, Aes256Sha256RsaPss.
+3 modes: None, Sign, SignAndEncrypt.
+3 auth methods: Anonymous, Username/Password, X.509 Certificate.
+Auto-generated client certificates when policy/mode set but no cert provided.
+
+## MockClient (Testing)
+
+```php
+$mock = MockClient::create()
+    ->onRead('i=2259', fn() => DataValue::ofInt32(0));
+
+$mock->read('i=2259');
+echo $mock->callCount('read'); // 1
+```
+
+DataValue factories: ofBoolean, ofInt32, ofUInt32, ofInt16, ofUInt16, ofDouble, ofFloat, ofString, of, bad.
+
+## Result DTOs
+
+- SubscriptionResult: subscriptionId, revisedPublishingInterval, revisedLifetimeCount, revisedMaxKeepAliveCount
+- MonitoredItemResult: statusCode, monitoredItemId, revisedSamplingInterval, revisedQueueSize
+- CallResult: statusCode, inputArgumentResults, outputArguments
+- BrowseResultSet: references, continuationPoint
+- PublishResult: subscriptionId, sequenceNumber, moreNotifications, notifications, availableSequenceNumbers
+- BrowsePathResult: statusCode, targets
+- BrowsePathTarget: targetId, remainingPathIndex
+- TransferResult: statusCode, availableSequenceNumbers
+
+## Related Packages
+
+- gianfriaur/opcua-php-client — Pure PHP OPC UA client (core protocol)
+- gianfriaur/opcua-php-client-session-manager — Daemon-based session persistence
+- opcua-test-server-suite — Docker-based OPC UA test servers
+
+## Testing
+
+66+ unit tests, 20+ integration test files. Uses Pest PHP. Integration tests require opcua-test-server-suite Docker containers.
+
+```bash
+./vendor/bin/pest tests/Unit/
+./vendor/bin/pest tests/Integration/ --group=integration
+```

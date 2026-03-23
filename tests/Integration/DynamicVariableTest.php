@@ -18,7 +18,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client = $manager->connect();
                 $nodeId = TestHelper::browseToNode($client, ['TestServer', 'Dynamic', 'Counter']);
                 $dv = $client->read($nodeId);
-                expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv->statusCode)->toBe(StatusCode::Good);
                 expect($dv->getValue())->toBeInt();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
@@ -31,7 +31,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client = $manager->connect();
                 $nodeId = TestHelper::browseToNode($client, ['TestServer', 'Dynamic', 'Random']);
                 $dv = $client->read($nodeId);
-                expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv->statusCode)->toBe(StatusCode::Good);
                 expect($dv->getValue())->toBeFloat();
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
@@ -44,7 +44,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client = $manager->connect();
                 $nodeId = TestHelper::browseToNode($client, ['TestServer', 'Dynamic', 'SineWave']);
                 $dv = $client->read($nodeId);
-                expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv->statusCode)->toBe(StatusCode::Good);
                 expect($dv->getValue())->toBeFloat();
                 expect($dv->getValue())->toBeGreaterThanOrEqual(-1.0)->toBeLessThanOrEqual(1.0);
             } finally {
@@ -58,7 +58,7 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
                 $client = $manager->connect();
                 $nodeId = TestHelper::browseToNode($client, ['TestServer', 'Dynamic', 'Timestamp']);
                 $dv = $client->read($nodeId);
-                expect($dv->getStatusCode())->toBe(StatusCode::Good);
+                expect($dv->statusCode)->toBe(StatusCode::Good);
             } finally {
                 TestHelper::safeDisconnect('default', $manager);
             }
