@@ -121,6 +121,30 @@ The daemon:
 - Cleans up expired sessions based on inactivity timeout
 - Gracefully disconnects all sessions on SIGTERM/SIGINT
 - Tracks active subscriptions and transfers them on reconnection
+- Manages certificate trust store state across sessions (v4.0+)
+- Supports `modifyMonitoredItems()` and `setTriggering()` forwarding (v4.0+)
+
+## IPC Config Keys (v4.0+)
+
+When the daemon creates a `ManagedClient` for each session, the following additional IPC config keys are forwarded from the connection config:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `trustStorePath` | `string\|null` | `null` | Path to the trust store directory for certificate persistence |
+| `trustPolicy` | `string\|null` | `null` | Trust validation policy: `fingerprint`, `fingerprint+expiry`, or `full` |
+| `autoAccept` | `bool` | `false` | Automatically accept unknown server certificates (TOFU mode) |
+| `autoDetectWriteType` | `bool` | `true` | Auto-detect OPC UA type on `write()` when type is omitted |
+| `readMetadataCache` | `bool` | `false` | Cache non-Value attribute reads (DisplayName, DataType, etc.) |
+
+These map directly to the `ManagedClient` methods:
+
+```php
+$client->setTrustStorePath('/var/opcua/trust');
+$client->setTrustPolicy(\PhpOpcua\Client\Security\TrustPolicy::Fingerprint);
+$client->autoAccept(true);
+$client->setAutoDetectWriteType(true);
+$client->setReadMetadataCache(true);
+```
 
 ## Security
 
@@ -131,6 +155,7 @@ The daemon supports multiple security layers:
 - **Method whitelist** — only documented OPC UA operations allowed
 - **Session limits** — configurable maximum to prevent resource exhaustion
 - **Certificate path restrictions** — `allowed_cert_dirs` constrains certificate file access
+- **Trust store integration** — certificate trust decisions persisted via `FileTrustStore` (v4.0+)
 
 ## Checking Daemon Status
 
@@ -141,3 +166,20 @@ if (Opcua::isSessionManagerRunning()) {
     // Daemon is not running — direct Client will be used
 }
 ```
+
+## ManagedClient Methods (v4.0+)
+
+The `ManagedClient` (used when the daemon is running) supports the following v4 methods in addition to the standard `OpcUaClientInterface`:
+
+| Method | Description |
+|--------|-------------|
+| `setTrustStorePath(string $path)` | Set the directory for persisting trusted certificates |
+| `setTrustPolicy(TrustPolicy $policy)` | Set the trust validation policy |
+| `autoAccept(bool $enabled)` | Enable/disable automatic certificate acceptance |
+| `setAutoDetectWriteType(bool $enabled)` | Enable/disable write type auto-detection |
+| `setReadMetadataCache(bool $enabled)` | Enable/disable read metadata caching |
+| `setEventDispatcher(EventDispatcherInterface $dispatcher)` | Attach a PSR-14 event dispatcher |
+| `trustCertificate(string $der)` | Programmatically trust a server certificate |
+| `untrustCertificate(string $der)` | Remove a previously trusted certificate |
+| `modifyMonitoredItems(int $subId, array $items)` | Modify sampling/filter of existing monitored items |
+| `setTriggering(int $subId, int $triggeringItem, array $linksToAdd, array $linksToRemove)` | Configure triggered monitoring links |

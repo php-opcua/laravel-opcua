@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Gianfriaur\OpcuaLaravel;
+namespace PhpOpcua\LaravelOpcua;
 
-use Gianfriaur\OpcuaLaravel\Commands\SessionCommand;
+use PhpOpcua\LaravelOpcua\Commands\SessionCommand;
 use Illuminate\Support\ServiceProvider;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 
@@ -27,10 +28,15 @@ class OpcuaServiceProvider extends ServiceProvider
                 ? $app->make(CacheInterface::class)
                 : null;
 
+            $eventDispatcher = $app->bound(EventDispatcherInterface::class)
+                ? $app->make(EventDispatcherInterface::class)
+                : null;
+
             return new OpcuaManager(
                 $app['config']['opcua'],
                 $logger,
                 $cache,
+                $eventDispatcher,
             );
         });
 

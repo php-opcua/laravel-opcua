@@ -2,13 +2,13 @@
 
 ## MockClient
 
-The underlying `opcua-php-client` provides a `MockClient` — a drop-in test double that implements `OpcUaClientInterface` with no TCP connection. Use it to test your application logic without a real OPC UA server.
+The underlying `opcua-client` provides a `MockClient` — a drop-in test double that implements `OpcUaClientInterface` with no TCP connection. Use it to test your application logic without a real OPC UA server.
 
 ### Basic Usage
 
 ```php
-use Gianfriaur\OpcuaPhpClient\Testing\MockClient;
-use Gianfriaur\OpcuaPhpClient\Types\DataValue;
+use PhpOpcua\Client\Testing\MockClient;
+use PhpOpcua\Client\Types\DataValue;
 
 $mock = MockClient::create()
     ->onRead('i=2259', fn() => DataValue::ofInt32(0))
@@ -26,8 +26,46 @@ $mock = MockClient::create()
     ->onWrite($nodeId, fn() => StatusCode::Good)
     ->onBrowse($nodeId, fn() => [...references...])
     ->onCall($objectId, $methodId, fn(array $args) => new CallResult(...))
-    ->onResolveNodeId($path, fn() => new NodeId(0, 2253));
+    ->onResolveNodeId($path, fn() => new NodeId(0, 2253))
+    ->onGetEndpoints(fn() => [...endpoints...]);  // v4.0+
 ```
+
+### v4.0+ MockClient Methods
+
+The `MockClient` in v4 supports additional methods for testing trust store, event, and subscription features:
+
+```php
+$mock = MockClient::create()
+    // Event dispatcher
+    ->setEventDispatcher($dispatcher)
+
+    // Endpoint discovery handler
+    ->onGetEndpoints(fn() => [...endpoints...])
+
+    // Write type auto-detection (type parameter is now optional)
+    ->setAutoDetectWriteType(true)
+
+    // Read metadata cache
+    ->setReadMetadataCache(true)
+
+    // Trust store
+    ->setTrustStorePath('/tmp/test-trust')
+    ->setTrustPolicy(TrustPolicy::Fingerprint);
+```
+
+Additional operations available on the mock:
+
+```php
+// Modify monitored items
+$mock->modifyMonitoredItems($subId, [
+    ['monitoredItemId' => 1, 'samplingInterval' => 200.0],
+]);
+
+// Set triggering links
+$mock->setTriggering($subId, $triggeringItemId, [2, 3], []);
+```
+
+> **Note:** In v4, the `write()` type parameter is nullable. `MockClient` reflects this -- you can call `$mock->write('ns=2;i=1001', 42)` without specifying a type, and it will use the `onWrite` handler as usual.
 
 ### Call Tracking
 
@@ -59,7 +97,7 @@ DataValue::bad(StatusCode::BadNodeIdUnknown);
 ### Injecting MockClient into OpcuaManager
 
 ```php
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
 
 $mock = MockClient::create()
     ->onRead('i=2259', fn() => DataValue::ofInt32(0));
@@ -91,11 +129,11 @@ No external dependencies required:
 
 ### Integration Tests
 
-Require the [opcua-test-server-suite](https://github.com/GianfriAur/opcua-test-server-suite) Docker containers:
+Require the [uanetstandard-test-suite](https://github.com/php-opcua/uanetstandard-test-suite) Docker containers:
 
 ```bash
-git clone https://github.com/GianfriAur/opcua-test-server-suite.git
-cd opcua-test-server-suite
+git clone https://github.com/php-opcua/uanetstandard-test-suite.git
+cd uanetstandard-test-suite
 docker compose up -d
 ```
 

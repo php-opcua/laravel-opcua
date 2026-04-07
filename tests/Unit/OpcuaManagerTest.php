@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
-use Gianfriaur\OpcuaPhpClient\Client;
-use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
-use Gianfriaur\OpcuaPhpClient\Security\SecurityMode;
-use Gianfriaur\OpcuaPhpClient\Security\SecurityPolicy;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
+use PhpOpcua\Client\Client;
+use PhpOpcua\Client\ClientBuilder;
+use PhpOpcua\Client\ClientBuilderInterface;
+use PhpOpcua\Client\OpcUaClientInterface;
+use PhpOpcua\Client\Security\SecurityMode;
+use PhpOpcua\Client\Security\SecurityPolicy;
+use PhpOpcua\Client\TrustStore\FileTrustStore;
+use PhpOpcua\Client\TrustStore\TrustPolicy;
+use PhpOpcua\SessionManager\Client\ManagedClient;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 
 function makeConfig(array $overrides = []): array
@@ -37,6 +42,12 @@ function makeConfig(array $overrides = []): array
                 'ca_certificate' => null,
                 'user_certificate' => null,
                 'user_key' => null,
+                'trust_store_path' => null,
+                'trust_policy' => null,
+                'auto_accept' => false,
+                'auto_accept_force' => false,
+                'auto_detect_write_type' => null,
+                'read_metadata_cache' => null,
             ],
         ],
     ], $overrides);
@@ -62,28 +73,34 @@ describe('OpcuaManager', function () {
         });
     });
 
-    describe('connection', function () {
+    describe('connection (direct mode)', function () {
 
         it('returns an OpcUaClientInterface instance', function () {
-            $manager = new OpcuaManager(makeConfig());
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')
+                ->with('opc.tcp://localhost:4840')
+                ->andReturn($mockClient);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
+                ->makePartial()
+                ->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')->andReturn($mockBuilder);
 
             $client = $manager->connection('default');
 
             expect($client)->toBeInstanceOf(OpcUaClientInterface::class);
         });
 
-        it('returns a direct Client when session manager is disabled', function () {
-            $manager = new OpcuaManager(makeConfig([
-                'session_manager' => ['enabled' => false],
-            ]));
-
-            $client = $manager->connection('default');
-
-            expect($client)->toBeInstanceOf(Client::class);
-        });
-
         it('returns the same instance on repeated calls', function () {
-            $manager = new OpcuaManager(makeConfig());
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->once()->andReturn($mockClient);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
+                ->makePartial()
+                ->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')->once()->andReturn($mockBuilder);
 
             $a = $manager->connection('default');
             $b = $manager->connection('default');
@@ -92,7 +109,14 @@ describe('OpcuaManager', function () {
         });
 
         it('returns the default connection when name is null', function () {
-            $manager = new OpcuaManager(makeConfig());
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->once()->andReturn($mockClient);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
+                ->makePartial()
+                ->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')->once()->andReturn($mockBuilder);
 
             $a = $manager->connection();
             $b = $manager->connection('default');
@@ -107,17 +131,74 @@ describe('OpcuaManager', function () {
         })->throws(InvalidArgumentException::class, 'OPC UA connection [nonexistent] is not configured.');
 
         it('returns different instances for different connection names', function () {
-            $manager = new OpcuaManager(makeConfig([
+            $mockClientA = Mockery::mock(Client::class);
+            $mockClientB = Mockery::mock(Client::class);
+            $mockBuilderA = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilderA->shouldReceive('connect')
+                ->with('opc.tcp://host-a:4840')
+                ->andReturn($mockClientA);
+            $mockBuilderB = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilderB->shouldReceive('connect')
+                ->with('opc.tcp://host-b:4840')
+                ->andReturn($mockClientB);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig([
                 'connections' => [
                     'default' => ['endpoint' => 'opc.tcp://host-a:4840'],
                     'second' => ['endpoint' => 'opc.tcp://host-b:4840'],
                 ],
-            ]));
+            ])])->makePartial()->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')
+                ->twice()
+                ->andReturn($mockBuilderA, $mockBuilderB);
 
             $a = $manager->connection('default');
             $b = $manager->connection('second');
 
             expect($a)->not->toBe($b);
+        });
+
+        it('auto-connects to configured endpoint via ClientBuilder', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')
+                ->once()
+                ->with('opc.tcp://my-server:4840')
+                ->andReturn($mockClient);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig([
+                'connections' => [
+                    'default' => ['endpoint' => 'opc.tcp://my-server:4840'],
+                ],
+            ])])->makePartial()->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')->andReturn($mockBuilder);
+
+            $client = $manager->connection('default');
+
+            expect($client)->toBe($mockClient);
+        });
+    });
+
+    describe('connection (managed mode)', function () {
+
+        it('creates a ManagedClient when session manager socket exists', function () {
+            $sockPath = sys_get_temp_dir() . '/opcua-test-' . uniqid() . '.sock';
+            touch($sockPath);
+
+            try {
+                $manager = new OpcuaManager(makeConfig([
+                    'session_manager' => [
+                        'enabled' => true,
+                        'socket_path' => $sockPath,
+                    ],
+                ]));
+
+                $client = $manager->connection('default');
+
+                expect($client)->toBeInstanceOf(ManagedClient::class);
+            } finally {
+                @unlink($sockPath);
+            }
         });
     });
 
@@ -126,16 +207,10 @@ describe('OpcuaManager', function () {
         it('removes the connection so a new one is created next time', function () {
             $manager = new OpcuaManager(makeConfig());
 
-            $first = $manager->connection('default');
-
-            // We can't actually call disconnect() because the Client isn't connected,
-            // so we test via reflection that the connection is tracked and removed.
-            $ref = new ReflectionProperty($manager, 'connections');
-            expect($ref->getValue($manager))->toHaveKey('default');
-
-            // Simulate: replace with a mock that won't error on disconnect
             $mock = Mockery::mock(OpcUaClientInterface::class);
             $mock->shouldReceive('disconnect')->once();
+
+            $ref = new ReflectionProperty($manager, 'connections');
             $ref->setValue($manager, ['default' => $mock]);
 
             $manager->disconnect('default');
@@ -146,7 +221,6 @@ describe('OpcuaManager', function () {
         it('does nothing when disconnecting an unknown connection', function () {
             $manager = new OpcuaManager(makeConfig());
 
-            // Should not throw
             $manager->disconnect('nonexistent');
 
             expect(true)->toBeTrue();
@@ -156,25 +230,14 @@ describe('OpcuaManager', function () {
     describe('disconnectAll', function () {
 
         it('disconnects all tracked connections', function () {
-            $manager = new OpcuaManager(makeConfig([
-                'connections' => [
-                    'default' => ['endpoint' => 'opc.tcp://host-a:4840'],
-                    'second' => ['endpoint' => 'opc.tcp://host-b:4840'],
-                ],
-            ]));
+            $manager = new OpcuaManager(makeConfig());
 
-            // Create both connections
-            $manager->connection('default');
-            $manager->connection('second');
-
-            $ref = new ReflectionProperty($manager, 'connections');
-            expect($ref->getValue($manager))->toHaveCount(2);
-
-            // Replace with mocks
             $mockA = Mockery::mock(OpcUaClientInterface::class);
             $mockA->shouldReceive('disconnect')->once();
             $mockB = Mockery::mock(OpcUaClientInterface::class);
             $mockB->shouldReceive('disconnect')->once();
+
+            $ref = new ReflectionProperty($manager, 'connections');
             $ref->setValue($manager, ['default' => $mockA, 'second' => $mockB]);
 
             $manager->disconnectAll();
@@ -185,51 +248,94 @@ describe('OpcuaManager', function () {
 
     describe('connect', function () {
 
-        it('calls connect on the client with the configured endpoint', function () {
-            $manager = new OpcuaManager(makeConfig([
-                'connections' => [
-                    'default' => ['endpoint' => 'opc.tcp://my-server:4840'],
-                ],
-            ]));
+        it('connects a ManagedClient to the configured endpoint', function () {
+            $sockPath = sys_get_temp_dir() . '/opcua-test-' . uniqid() . '.sock';
+            touch($sockPath);
 
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect')->once()->with('opc.tcp://my-server:4840');
+            try {
+                $mockClient = Mockery::mock(ManagedClient::class)->makePartial();
+                $mockClient->shouldReceive('isConnected')->andReturn(false);
+                $mockClient->shouldReceive('connect')
+                    ->once()
+                    ->with('opc.tcp://my-server:4840');
+
+                $manager = new OpcuaManager(makeConfig([
+                    'session_manager' => [
+                        'enabled' => true,
+                        'socket_path' => $sockPath,
+                    ],
+                    'connections' => [
+                        'default' => ['endpoint' => 'opc.tcp://my-server:4840'],
+                    ],
+                ]));
+
+                $ref = new ReflectionProperty($manager, 'connections');
+                $ref->setValue($manager, ['default' => $mockClient]);
+
+                $result = $manager->connect('default');
+
+                expect($result)->toBe($mockClient);
+            } finally {
+                @unlink($sockPath);
+            }
+        });
+
+        it('returns already-connected direct mode client without reconnecting', function () {
+            $mockClient = Mockery::mock(Client::class);
+
+            $manager = new OpcuaManager(makeConfig());
 
             $ref = new ReflectionProperty($manager, 'connections');
-            $ref->setValue($manager, ['default' => $mock]);
+            $ref->setValue($manager, ['default' => $mockClient]);
 
             $result = $manager->connect('default');
 
-            expect($result)->toBe($mock);
+            expect($result)->toBe($mockClient);
+        });
+
+        it('connects the default connection when name is null', function () {
+            $mockClient = Mockery::mock(Client::class);
+
+            $manager = new OpcuaManager(makeConfig());
+
+            $ref = new ReflectionProperty($manager, 'connections');
+            $ref->setValue($manager, ['default' => $mockClient]);
+
+            $result = $manager->connect(null);
+
+            expect($result)->toBe($mockClient);
         });
     });
 
-    describe('connectTo', function () {
+    describe('connectTo (direct mode)', function () {
 
-        it('creates a client and connects to an arbitrary endpoint', function () {
+        it('creates a builder and connects to an arbitrary endpoint', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')
+                ->once()
+                ->with('opc.tcp://10.0.0.50:4840')
+                ->andReturn($mockClient);
+
             $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
                 ->makePartial()
                 ->shouldAllowMockingProtectedMethods();
-
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect')->once()->with('opc.tcp://10.0.0.50:4840');
-
-            $manager->shouldReceive('createClient')->once()->andReturn($mock);
+            $manager->shouldReceive('createBuilder')->once()->andReturn($mockBuilder);
 
             $result = $manager->connectTo('opc.tcp://10.0.0.50:4840');
 
-            expect($result)->toBe($mock);
+            expect($result)->toBe($mockClient);
         });
 
         it('stores the connection under the ad-hoc name by default', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->andReturn($mockClient);
+
             $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
                 ->makePartial()
                 ->shouldAllowMockingProtectedMethods();
-
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect');
-
-            $manager->shouldReceive('createClient')->andReturn($mock);
+            $manager->shouldReceive('createBuilder')->andReturn($mockBuilder);
 
             $manager->connectTo('opc.tcp://host:4840');
 
@@ -238,14 +344,14 @@ describe('OpcuaManager', function () {
         });
 
         it('stores the connection under a custom name when "as" is provided', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->andReturn($mockClient);
+
             $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
                 ->makePartial()
                 ->shouldAllowMockingProtectedMethods();
-
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect');
-
-            $manager->shouldReceive('createClient')->andReturn($mock);
+            $manager->shouldReceive('createBuilder')->andReturn($mockBuilder);
 
             $manager->connectTo('opc.tcp://host:4840', as: 'my-plc');
 
@@ -256,30 +362,30 @@ describe('OpcuaManager', function () {
         });
 
         it('can be retrieved by name after connectTo', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->andReturn($mockClient);
+
             $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
                 ->makePartial()
                 ->shouldAllowMockingProtectedMethods();
-
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect');
-
-            $manager->shouldReceive('createClient')->andReturn($mock);
+            $manager->shouldReceive('createBuilder')->andReturn($mockBuilder);
 
             $manager->connectTo('opc.tcp://host:4840', as: 'temp');
 
-            expect($manager->connection('temp'))->toBe($mock);
+            expect($manager->connection('temp'))->toBe($mockClient);
         });
 
-        it('applies inline config to the client', function () {
+        it('applies inline config to the builder', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->andReturn($mockClient);
+
             $manager = Mockery::mock(OpcuaManager::class, [makeConfig()])
                 ->makePartial()
                 ->shouldAllowMockingProtectedMethods();
-
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect');
-
-            $manager->shouldReceive('createClient')->andReturn($mock);
-            $manager->shouldReceive('configureClient')->once()->with($mock, [
+            $manager->shouldReceive('createBuilder')->andReturn($mockBuilder);
+            $manager->shouldReceive('configureBuilder')->once()->with($mockBuilder, [
                 'username' => 'admin',
                 'password' => 'pass',
             ]);
@@ -288,6 +394,35 @@ describe('OpcuaManager', function () {
                 'username' => 'admin',
                 'password' => 'pass',
             ]);
+        });
+    });
+
+    describe('connectTo (managed mode)', function () {
+
+        it('creates a ManagedClient and connects to an arbitrary endpoint', function () {
+            $sockPath = sys_get_temp_dir() . '/opcua-test-' . uniqid() . '.sock';
+            touch($sockPath);
+
+            try {
+                $mockClient = Mockery::mock(ManagedClient::class)->makePartial();
+                $mockClient->shouldReceive('connect')
+                    ->once()
+                    ->with('opc.tcp://10.0.0.50:4840');
+
+                $manager = Mockery::mock(OpcuaManager::class, [makeConfig([
+                    'session_manager' => [
+                        'enabled' => true,
+                        'socket_path' => $sockPath,
+                    ],
+                ])])->makePartial()->shouldAllowMockingProtectedMethods();
+                $manager->shouldReceive('createManagedClient')->once()->andReturn($mockClient);
+
+                $result = $manager->connectTo('opc.tcp://10.0.0.50:4840');
+
+                expect($result)->toBe($mockClient);
+            } finally {
+                @unlink($sockPath);
+            }
         });
     });
 
@@ -333,30 +468,40 @@ describe('OpcuaManager', function () {
 
     describe('session manager auto-detection', function () {
 
-        it('creates a direct Client when session manager is disabled', function () {
-            $manager = new OpcuaManager(makeConfig([
+        it('uses direct mode when session manager is disabled', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->andReturn($mockClient);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig([
                 'session_manager' => ['enabled' => false],
-            ]));
+            ])])->makePartial()->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')->once()->andReturn($mockBuilder);
 
             $client = $manager->connection('default');
 
-            expect($client)->toBeInstanceOf(Client::class);
+            expect($client)->toBe($mockClient);
         });
 
-        it('creates a direct Client when socket does not exist', function () {
-            $manager = new OpcuaManager(makeConfig([
+        it('uses direct mode when socket does not exist', function () {
+            $mockClient = Mockery::mock(Client::class);
+            $mockBuilder = Mockery::mock(ClientBuilderInterface::class);
+            $mockBuilder->shouldReceive('connect')->andReturn($mockClient);
+
+            $manager = Mockery::mock(OpcuaManager::class, [makeConfig([
                 'session_manager' => [
                     'enabled' => true,
                     'socket_path' => '/tmp/nonexistent-' . uniqid() . '.sock',
                 ],
-            ]));
+            ])])->makePartial()->shouldAllowMockingProtectedMethods();
+            $manager->shouldReceive('createBuilder')->once()->andReturn($mockBuilder);
 
             $client = $manager->connection('default');
 
-            expect($client)->toBeInstanceOf(Client::class);
+            expect($client)->toBe($mockClient);
         });
 
-        it('creates a ManagedClient when session manager socket exists', function () {
+        it('uses managed mode when session manager socket exists', function () {
             $sockPath = sys_get_temp_dir() . '/opcua-test-' . uniqid() . '.sock';
             touch($sockPath);
 
@@ -370,62 +515,432 @@ describe('OpcuaManager', function () {
 
                 $client = $manager->connection('default');
 
-                expect($client)->toBeInstanceOf(
-                    \Gianfriaur\OpcuaSessionManager\Client\ManagedClient::class,
-                );
+                expect($client)->toBeInstanceOf(ManagedClient::class);
             } finally {
                 @unlink($sockPath);
             }
         });
     });
 
-    describe('configureClient certificate behavior', function () {
+    describe('configureBuilder', function () {
 
-        it('does not call setClientCertificate when both cert and key are absent', function () {
+        it('applies timeout when configured', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setClientCertificate');
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setTimeout')->once()->with(15.0)->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['timeout' => 15.0]);
+        });
+
+        it('does not call setTimeout when timeout is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setTimeout');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['timeout' => null]);
+        });
+
+        it('applies auto_retry when configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setAutoRetry')->once()->with(3)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_retry' => 3]);
+        });
+
+        it('does not call setAutoRetry when auto_retry is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setAutoRetry');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_retry' => null]);
+        });
+
+        it('applies batch_size when configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setBatchSize')->once()->with(100)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['batch_size' => 100]);
+        });
+
+        it('applies batch_size=0 to disable batching', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setBatchSize')->once()->with(0)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['batch_size' => 0]);
+        });
+
+        it('does not call setBatchSize when batch_size is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setBatchSize');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['batch_size' => null]);
+        });
+
+        it('applies browse_max_depth when configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setDefaultBrowseMaxDepth')->once()->with(20)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['browse_max_depth' => 20]);
+        });
+
+        it('does not call setDefaultBrowseMaxDepth when browse_max_depth is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setDefaultBrowseMaxDepth');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['browse_max_depth' => null]);
+        });
+
+        it('applies all options together', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setTimeout')->once()->with(10.0)->andReturnSelf();
+            $mock->shouldReceive('setAutoRetry')->once()->with(2)->andReturnSelf();
+            $mock->shouldReceive('setBatchSize')->once()->with(50)->andReturnSelf();
+            $mock->shouldReceive('setDefaultBrowseMaxDepth')->once()->with(15)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
             $method->invoke($manager, $mock, [
-                'client_certificate' => null,
-                'client_key' => null,
+                'timeout' => 10.0,
+                'auto_retry' => 2,
+                'batch_size' => 50,
+                'browse_max_depth' => 15,
             ]);
         });
 
-        it('does not call setClientCertificate when only client_certificate is set', function () {
+        it('applies explicit logger from config', function () {
+            $logger = Mockery::mock(LoggerInterface::class);
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setClientCertificate');
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($logger)->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['logger' => $logger]);
+        });
+
+        it('applies default logger when no explicit logger in config', function () {
+            $logger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $logger);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($logger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('does not call setLogger when no logger available', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setLogger');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('explicit config logger takes precedence over default', function () {
+            $defaultLogger = Mockery::mock(LoggerInterface::class);
+            $explicitLogger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($explicitLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['logger' => $explicitLogger]);
+        });
+
+        it('applies explicit cache from config', function () {
+            $cache = Mockery::mock(CacheInterface::class);
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setCache')->once()->with($cache)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['cache' => $cache]);
+        });
+
+        it('applies null cache from config to disable caching', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setCache')->once()->with(null)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['cache' => null]);
+        });
+
+        it('applies default cache when no explicit cache in config', function () {
+            $cache = Mockery::mock(CacheInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultCache: $cache);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setCache')->once()->with($cache)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('does not call setCache when no cache available', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setCache');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('explicit config cache takes precedence over default', function () {
+            $defaultCache = Mockery::mock(CacheInterface::class);
+            $explicitCache = Mockery::mock(CacheInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultCache: $defaultCache);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setCache')->once()->with($explicitCache)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['cache' => $explicitCache]);
+        });
+
+        it('applies event dispatcher from config', function () {
+            $dispatcher = Mockery::mock(EventDispatcherInterface::class);
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setEventDispatcher')->once()->with($dispatcher)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['event_dispatcher' => $dispatcher]);
+        });
+
+        it('applies default event dispatcher when no explicit in config', function () {
+            $dispatcher = Mockery::mock(EventDispatcherInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultEventDispatcher: $dispatcher);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setEventDispatcher')->once()->with($dispatcher)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('does not call setEventDispatcher when no dispatcher available', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setEventDispatcher');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, []);
+        });
+
+        it('applies trust store path by creating FileTrustStore', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setTrustStore')
+                ->once()
+                ->with(Mockery::type(FileTrustStore::class))
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['trust_store_path' => '/tmp/trust']);
+        });
+
+        it('does not call setTrustStore when trust_store_path is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setTrustStore');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['trust_store_path' => null]);
+        });
+
+        it('applies trust policy when configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setTrustPolicy')
+                ->once()
+                ->with(TrustPolicy::Full)
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['trust_policy' => 'full']);
+        });
+
+        it('does not call setTrustPolicy when trust_policy is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setTrustPolicy');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['trust_policy' => null]);
+        });
+
+        it('applies auto_accept when enabled', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('autoAccept')
+                ->once()
+                ->with(true, false)
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_accept' => true, 'auto_accept_force' => false]);
+        });
+
+        it('applies auto_accept with force when both enabled', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('autoAccept')
+                ->once()
+                ->with(true, true)
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_accept' => true, 'auto_accept_force' => true]);
+        });
+
+        it('does not call autoAccept when auto_accept is false', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('autoAccept');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_accept' => false]);
+        });
+
+        it('applies auto_detect_write_type when configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setAutoDetectWriteType')->once()->with(true)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_detect_write_type' => true]);
+        });
+
+        it('does not call setAutoDetectWriteType when null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setAutoDetectWriteType');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['auto_detect_write_type' => null]);
+        });
+
+        it('applies read_metadata_cache when configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setReadMetadataCache')->once()->with(true)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['read_metadata_cache' => true]);
+        });
+
+        it('does not call setReadMetadataCache when null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setReadMetadataCache');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['read_metadata_cache' => null]);
+        });
+    });
+
+    describe('configureBuilder security options', function () {
+
+        it('calls setSecurityPolicy when security_policy is configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setSecurityPolicy')
+                ->once()
+                ->with(SecurityPolicy::Basic256Sha256)
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['security_policy' => 'Basic256Sha256']);
+        });
+
+        it('does not call setSecurityPolicy when security_policy is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setSecurityPolicy');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['security_policy' => null]);
+        });
+
+        it('calls setSecurityMode when security_mode is configured', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setSecurityMode')
+                ->once()
+                ->with(SecurityMode::SignAndEncrypt)
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['security_mode' => 'SignAndEncrypt']);
+        });
+
+        it('does not call setSecurityMode when security_mode is null', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setSecurityMode');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['security_mode' => null]);
+        });
+
+        it('calls setUserCredentials when username is set', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setUserCredentials')
+                ->once()
+                ->with('admin', 'secret')
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
             $method->invoke($manager, $mock, [
-                'client_certificate' => '/path/to/cert.pem',
-                'client_key' => null,
+                'username' => 'admin',
+                'password' => 'secret',
             ]);
         });
 
-        it('does not call setClientCertificate when only client_key is set', function () {
+        it('calls setUserCredentials with empty password when password is absent', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setClientCertificate');
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setUserCredentials')
+                ->once()
+                ->with('admin', '')
+                ->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, [
-                'client_certificate' => null,
-                'client_key' => '/path/to/key.pem',
-            ]);
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['username' => 'admin']);
         });
 
-        it('calls setClientCertificate when both client_certificate and client_key are set', function () {
+        it('does not call setUserCredentials when username is null', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setUserCredentials');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['username' => null]);
+        });
+
+        it('calls setClientCertificate when both cert and key are set', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
             $mock->shouldReceive('setClientCertificate')
                 ->once()
                 ->with('/path/cert.pem', '/path/key.pem', null)
                 ->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
+            $method = new ReflectionMethod($manager, 'configureBuilder');
             $method->invoke($manager, $mock, [
                 'client_certificate' => '/path/cert.pem',
                 'client_key'         => '/path/key.pem',
@@ -434,13 +949,13 @@ describe('OpcuaManager', function () {
 
         it('passes ca_certificate as third argument when provided', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
+            $mock = Mockery::mock(ClientBuilderInterface::class);
             $mock->shouldReceive('setClientCertificate')
                 ->once()
                 ->with('/path/cert.pem', '/path/key.pem', '/path/ca.pem')
                 ->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
+            $method = new ReflectionMethod($manager, 'configureBuilder');
             $method->invoke($manager, $mock, [
                 'client_certificate' => '/path/cert.pem',
                 'client_key'         => '/path/key.pem',
@@ -448,213 +963,119 @@ describe('OpcuaManager', function () {
             ]);
         });
 
-    });
-
-    describe('configureClient v2.0 options', function () {
-
-        it('applies timeout when configured', function () {
+        it('does not call setClientCertificate when cert or key is absent', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setTimeout')
-                ->once()
-                ->with(15.0)
-                ->andReturnSelf();
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setClientCertificate');
 
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['timeout' => 15.0]);
-        });
-
-        it('does not call setTimeout when timeout is null', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setTimeout');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['timeout' => null]);
-        });
-
-        it('applies auto_retry when configured', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setAutoRetry')
-                ->once()
-                ->with(3)
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['auto_retry' => 3]);
-        });
-
-        it('does not call setAutoRetry when auto_retry is null', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setAutoRetry');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['auto_retry' => null]);
-        });
-
-        it('applies batch_size when configured', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setBatchSize')
-                ->once()
-                ->with(100)
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['batch_size' => 100]);
-        });
-
-        it('applies batch_size=0 to disable batching', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setBatchSize')
-                ->once()
-                ->with(0)
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['batch_size' => 0]);
-        });
-
-        it('does not call setBatchSize when batch_size is null', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setBatchSize');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['batch_size' => null]);
-        });
-
-        it('applies browse_max_depth when configured', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setDefaultBrowseMaxDepth')
-                ->once()
-                ->with(20)
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['browse_max_depth' => 20]);
-        });
-
-        it('does not call setDefaultBrowseMaxDepth when browse_max_depth is null', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setDefaultBrowseMaxDepth');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['browse_max_depth' => null]);
-        });
-
-        it('applies all v2.0 options together', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setTimeout')->once()->with(10.0)->andReturnSelf();
-            $mock->shouldReceive('setAutoRetry')->once()->with(2)->andReturnSelf();
-            $mock->shouldReceive('setBatchSize')->once()->with(50)->andReturnSelf();
-            $mock->shouldReceive('setDefaultBrowseMaxDepth')->once()->with(15)->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
+            $method = new ReflectionMethod($manager, 'configureBuilder');
             $method->invoke($manager, $mock, [
-                'timeout' => 10.0,
-                'auto_retry' => 2,
-                'batch_size' => 50,
-                'browse_max_depth' => 15,
+                'client_certificate' => '/path/cert.pem',
+                'client_key' => null,
+            ]);
+        });
+
+        it('calls setUserCertificate when user_certificate and user_key are set', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setUserCertificate')
+                ->once()
+                ->with('/path/user-cert.pem', '/path/user-key.pem')
+                ->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, [
+                'user_certificate' => '/path/user-cert.pem',
+                'user_key'         => '/path/user-key.pem',
+            ]);
+        });
+
+        it('does not call setUserCertificate when only user_certificate is set', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldNotReceive('setUserCertificate');
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, [
+                'user_certificate' => '/path/user-cert.pem',
+                'user_key'         => null,
             ]);
         });
     });
 
-    describe('configureClient v3.0 options', function () {
+    describe('configureManagedClient', function () {
 
-        it('applies explicit logger from config', function () {
-            $logger = Mockery::mock(LoggerInterface::class);
+        it('applies timeout when configured', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setLogger')->once()->with($logger)->andReturnSelf();
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('setTimeout')->once()->with(15.0)->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['logger' => $logger]);
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
+            $method->invoke($manager, $mock, ['timeout' => 15.0]);
         });
 
-        it('applies default logger when no explicit logger in config', function () {
-            $logger = Mockery::mock(LoggerInterface::class);
-            $manager = new OpcuaManager(makeConfig(), defaultLogger: $logger);
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setLogger')->once()->with($logger)->andReturnSelf();
+        it('applies trust store path', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('setTrustStorePath')
+                ->once()
+                ->with('/tmp/trust')
+                ->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
+            $method->invoke($manager, $mock, ['trust_store_path' => '/tmp/trust']);
+        });
+
+        it('applies auto_detect_write_type', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('setAutoDetectWriteType')->once()->with(false)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
+            $method->invoke($manager, $mock, ['auto_detect_write_type' => false]);
+        });
+
+        it('applies read_metadata_cache', function () {
+            $manager = new OpcuaManager(makeConfig());
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('setReadMetadataCache')->once()->with(true)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
+            $method->invoke($manager, $mock, ['read_metadata_cache' => true]);
+        });
+
+        it('applies event dispatcher', function () {
+            $dispatcher = Mockery::mock(EventDispatcherInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultEventDispatcher: $dispatcher);
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('setEventDispatcher')->once()->with($dispatcher)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
             $method->invoke($manager, $mock, []);
         });
 
-        it('does not call setLogger when no logger available', function () {
+        it('applies auto_accept with force', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setLogger');
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('autoAccept')
+                ->once()
+                ->with(true, true)
+                ->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, []);
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
+            $method->invoke($manager, $mock, ['auto_accept' => true, 'auto_accept_force' => true]);
         });
 
-        it('applies explicit cache from config', function () {
-            $cache = Mockery::mock(CacheInterface::class);
+        it('applies trust policy', function () {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setCache')->once()->with($cache)->andReturnSelf();
+            $mock = Mockery::mock(ManagedClient::class)->makePartial();
+            $mock->shouldReceive('setTrustPolicy')
+                ->once()
+                ->with(TrustPolicy::FingerprintAndExpiry)
+                ->andReturnSelf();
 
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['cache' => $cache]);
-        });
-
-        it('applies null cache from config to disable caching', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setCache')->once()->with(null)->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['cache' => null]);
-        });
-
-        it('applies default cache when no explicit cache in config', function () {
-            $cache = Mockery::mock(CacheInterface::class);
-            $manager = new OpcuaManager(makeConfig(), defaultCache: $cache);
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setCache')->once()->with($cache)->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, []);
-        });
-
-        it('does not call setCache when no cache available', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setCache');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, []);
-        });
-
-        it('explicit config logger takes precedence over default', function () {
-            $defaultLogger = Mockery::mock(LoggerInterface::class);
-            $explicitLogger = Mockery::mock(LoggerInterface::class);
-            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger);
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setLogger')->once()->with($explicitLogger)->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['logger' => $explicitLogger]);
-        });
-
-        it('explicit config cache takes precedence over default', function () {
-            $defaultCache = Mockery::mock(CacheInterface::class);
-            $explicitCache = Mockery::mock(CacheInterface::class);
-            $manager = new OpcuaManager(makeConfig(), defaultCache: $defaultCache);
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setCache')->once()->with($explicitCache)->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['cache' => $explicitCache]);
+            $method = new ReflectionMethod($manager, 'configureManagedClient');
+            $method->invoke($manager, $mock, ['trust_policy' => 'fingerprint+expiry']);
         });
     });
 
@@ -772,144 +1193,23 @@ describe('OpcuaManager', function () {
         });
     });
 
-    describe('configureClient security options', function () {
+    describe('resolveTrustPolicy', function () {
 
-        it('calls setSecurityPolicy when security_policy is configured', function () {
+        $method = fn() => new ReflectionMethod(OpcuaManager::class, 'resolveTrustPolicy');
+
+        it('resolves "fingerprint" to TrustPolicy::Fingerprint', function () use ($method) {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setSecurityPolicy')
-                ->once()
-                ->with(SecurityPolicy::Basic256Sha256)
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['security_policy' => 'Basic256Sha256']);
+            expect($method()->invoke($manager, 'fingerprint'))->toBe(TrustPolicy::Fingerprint);
         });
 
-        it('does not call setSecurityPolicy when security_policy is null', function () {
+        it('resolves "fingerprint+expiry" to TrustPolicy::FingerprintAndExpiry', function () use ($method) {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setSecurityPolicy');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['security_policy' => null]);
+            expect($method()->invoke($manager, 'fingerprint+expiry'))->toBe(TrustPolicy::FingerprintAndExpiry);
         });
 
-        it('calls setSecurityMode when security_mode is configured', function () {
+        it('resolves "full" to TrustPolicy::Full', function () use ($method) {
             $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setSecurityMode')
-                ->once()
-                ->with(SecurityMode::SignAndEncrypt)
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['security_mode' => 'SignAndEncrypt']);
-        });
-
-        it('does not call setSecurityMode when security_mode is null', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setSecurityMode');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['security_mode' => null]);
-        });
-
-        it('calls setUserCredentials when username is set', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setUserCredentials')
-                ->once()
-                ->with('admin', 'secret')
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, [
-                'username' => 'admin',
-                'password' => 'secret',
-            ]);
-        });
-
-        it('calls setUserCredentials with empty password when password is absent', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setUserCredentials')
-                ->once()
-                ->with('admin', '')
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['username' => 'admin']);
-        });
-
-        it('does not call setUserCredentials when username is null', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setUserCredentials');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, ['username' => null]);
-        });
-
-        it('calls setUserCertificate when user_certificate and user_key are set', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldReceive('setUserCertificate')
-                ->once()
-                ->with('/path/user-cert.pem', '/path/user-key.pem')
-                ->andReturnSelf();
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, [
-                'user_certificate' => '/path/user-cert.pem',
-                'user_key'         => '/path/user-key.pem',
-            ]);
-        });
-
-        it('does not call setUserCertificate when only user_certificate is set', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setUserCertificate');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, [
-                'user_certificate' => '/path/user-cert.pem',
-                'user_key'         => null,
-            ]);
-        });
-
-        it('does not call setUserCertificate when only user_key is set', function () {
-            $manager = new OpcuaManager(makeConfig());
-            $mock = Mockery::mock(Client::class)->makePartial();
-            $mock->shouldNotReceive('setUserCertificate');
-
-            $method = new ReflectionMethod($manager, 'configureClient');
-            $method->invoke($manager, $mock, [
-                'user_certificate' => null,
-                'user_key'         => '/path/user-key.pem',
-            ]);
-        });
-    });
-
-    describe('connect with null name', function () {
-
-        it('connects the default connection when name is null', function () {
-            $manager = new OpcuaManager(makeConfig([
-                'connections' => [
-                    'default' => ['endpoint' => 'opc.tcp://default-host:4840'],
-                ],
-            ]));
-
-            $mock = Mockery::mock(OpcUaClientInterface::class);
-            $mock->shouldReceive('connect')->once()->with('opc.tcp://default-host:4840');
-
-            $ref = new ReflectionProperty($manager, 'connections');
-            $ref->setValue($manager, ['default' => $mock]);
-
-            $result = $manager->connect(null);
-
-            expect($result)->toBe($mock);
+            expect($method()->invoke($manager, 'full'))->toBe(TrustPolicy::Full);
         });
     });
 });

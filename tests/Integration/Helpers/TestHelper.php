@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Gianfriaur\OpcuaLaravel\Tests\Integration\Helpers;
+namespace PhpOpcua\LaravelOpcua\Tests\Integration\Helpers;
 
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
-use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
-use Gianfriaur\OpcuaPhpClient\Types\NodeId;
-use Gianfriaur\OpcuaPhpClient\Types\ReferenceDescription;
-use Gianfriaur\OpcuaSessionManager\Client\SocketConnection;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
+use PhpOpcua\Client\OpcUaClientInterface;
+use PhpOpcua\Client\Types\NodeId;
+use PhpOpcua\Client\Types\ReferenceDescription;
+use PhpOpcua\SessionManager\Client\SocketConnection;
 
 final class TestHelper
 {
@@ -28,7 +28,7 @@ final class TestHelper
     // ── Certificate paths ──────────────────────────────────────────────
     public static function getCertsDir(): string
     {
-        $dir = getenv('OPCUA_CERTS_DIR') ?: __DIR__ . '/../../../../opcua-test-server-suite/certs';
+        $dir = getenv('OPCUA_CERTS_DIR') ?: __DIR__ . '/../../../../opcua-test-suite/certs';
 
         return realpath($dir) ?: $dir;
     }
@@ -80,10 +80,10 @@ final class TestHelper
         }
 
         // Use the session manager binary from vendor
-        $binPath = __DIR__ . '/../../../vendor/gianfriaur/opcua-php-client-session-manager/bin/opcua-session-manager';
+        $binPath = __DIR__ . '/../../../vendor/php-opcua/opcua-session-manager/bin/opcua-session-manager';
         if (!file_exists($binPath)) {
             // Fallback: sibling project
-            $binPath = __DIR__ . '/../../../../opcua-php-client-session-manager/bin/opcua-session-manager';
+            $binPath = __DIR__ . '/../../../../opcua-session-manager/bin/opcua-session-manager';
         }
 
         $cmd = sprintf(

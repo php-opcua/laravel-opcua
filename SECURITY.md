@@ -23,11 +23,11 @@ You should receive an acknowledgment within 48 hours. From there, we'll work tog
 
 ## Scope
 
-This policy covers the `gianfriaur/opcua-laravel-client` package itself. For vulnerabilities in dependencies or related packages, please report them to the respective maintainers:
+This policy covers the `php-opcua/laravel-opcua` package itself. For vulnerabilities in dependencies or related packages, please report them to the respective maintainers:
 
-- [opcua-php-client](https://github.com/GianfriAur/opcua-php-client)
-- [opcua-php-client-session-manager](https://github.com/GianfriAur/opcua-php-client-session-manager)
-- [opcua-test-server-suite](https://github.com/GianfriAur/opcua-test-server-suite)
+- [opcua-client](https://github.com/php-opcua/opcua-client)
+- [opcua-session-manager](https://github.com/php-opcua/opcua-session-manager)
+- [uanetstandard-test-suite](https://github.com/php-opcua/uanetstandard-test-suite)
 
 ## Security Considerations
 
@@ -35,7 +35,7 @@ This package integrates OPC UA into Laravel applications. Security is enforced a
 
 ### OPC UA Layer
 
-The underlying `opcua-php-client` implements the full OPC UA security stack. When deploying in production:
+The underlying `opcua-client` implements the full OPC UA security stack. When deploying in production:
 
 - Use `SecurityPolicy::Basic256Sha256` or stronger
 - Use `SecurityMode::SignAndEncrypt`

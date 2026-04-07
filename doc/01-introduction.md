@@ -1,6 +1,6 @@
 # Introduction
 
-Laravel integration for [OPC UA](https://opcfoundation.org/about/opc-technologies/opc-ua/) built on [`opcua-php-client`](https://github.com/GianfriAur/opcua-php-client) and [`opcua-php-client-session-manager`](https://github.com/GianfriAur/opcua-php-client-session-manager).
+Laravel integration for [OPC UA](https://opcfoundation.org/about/opc-technologies/opc-ua/) built on [`php-opcua/opcua-client`](https://github.com/php-opcua/opcua-client) and [`php-opcua/opcua-session-manager`](https://github.com/php-opcua/opcua-session-manager).
 
 This package wraps the full OPC UA client API with Laravel conventions: a Facade, `.env`-based configuration, named connections, service container integration, and an Artisan command for the optional session manager daemon.
 
@@ -15,7 +15,7 @@ This package wraps the full OPC UA client API with Laravel conventions: a Facade
 ## Quick Start
 
 ```bash
-composer require gianfriaur/opcua-laravel-client
+composer require php-opcua/laravel-opcua
 ```
 
 Add your endpoint to `.env`:
@@ -27,7 +27,7 @@ OPCUA_ENDPOINT=opc.tcp://192.168.1.100:4840
 Use the Facade:
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 $value = $client->read('i=2259');
@@ -45,8 +45,14 @@ $client->disconnect();
 - **Fluent Builder API** — `readMulti()`, `writeMulti()`, `createMonitoredItems()`, `translateBrowsePaths()`
 - **PSR-3 Logging** — Laravel log channel injected automatically
 - **PSR-16 Caching** — Laravel cache store injected automatically, per-call `useCache` control
+- **PSR-14 Events** — 47 lifecycle and operation events dispatched through Laravel's event system
+- **Trust Store** — `FileTrustStore` with configurable `TrustPolicy` for certificate trust management
+- **Write Auto-Detection** — `write()` infers the OPC UA type automatically when the type parameter is omitted
+- **Read Metadata Cache** — cached node metadata avoids redundant server round-trips on repeated reads
 - **Type Discovery** — `discoverDataTypes()` for server-defined structured types
 - **Subscription Transfer** — `transferSubscriptions()` / `republish()` for session recovery
+- **Advanced Subscriptions** — `modifyMonitoredItems()`, `setTriggering()` for fine-grained monitoring control
+- **Certificate Trust Management** — `trustCertificate()` / `untrustCertificate()` for runtime certificate handling
 - **MockClient** — test without a server
 - **All OPC UA operations** — browse, read, write, call, subscriptions, events, history
 
@@ -60,13 +66,13 @@ Opcua::connect()
     │
     ├── socket exists? ──► YES ──► ManagedClient (Unix socket IPC to daemon)
     │                                     │
-    ├── socket missing? ─► NO  ──► Direct Client (new TCP connection per request)
+    ├── socket missing? ─► NO  ──► ClientBuilder::create()->...->connect($url)
                                           │
                                           ▼
                                   OPC UA Server
 ```
 
-The `OpcuaManager` checks for the session manager daemon's Unix socket at connection time. If the socket exists, traffic routes through the daemon for session persistence. If not, a direct TCP connection is established. No code changes needed to switch between modes.
+The `OpcuaManager` checks for the session manager daemon's Unix socket at connection time. If the socket exists, traffic routes through the daemon for session persistence. If not, a `ClientBuilder` constructs and connects a direct client. No code changes needed to switch between modes.
 
 ## Documentation Index
 
@@ -86,7 +92,7 @@ The `OpcuaManager` checks for the session manager daemon's Unix socket at connec
 
 | Package | Description |
 |---------|-------------|
-| [opcua-php-client](https://github.com/GianfriAur/opcua-php-client) | Pure PHP OPC UA client — the core protocol implementation |
-| [opcua-php-client-session-manager](https://github.com/GianfriAur/opcua-php-client-session-manager) | Daemon-based session persistence |
-| [opcua-laravel-client](https://github.com/GianfriAur/opcua-laravel-client) | Laravel integration (this package) |
-| [opcua-test-server-suite](https://github.com/GianfriAur/opcua-test-server-suite) | Docker-based OPC UA test servers |
+| [php-opcua/opcua-client](https://github.com/php-opcua/opcua-client) | Pure PHP OPC UA client — the core protocol implementation |
+| [php-opcua/opcua-session-manager](https://github.com/php-opcua/opcua-session-manager) | Daemon-based session persistence |
+| [php-opcua/laravel-opcua](https://github.com/php-opcua/laravel-opcua) | Laravel integration (this package) |
+| [uanetstandard-test-suite](https://github.com/php-opcua/uanetstandard-test-suite) | Docker-based OPC UA test servers |

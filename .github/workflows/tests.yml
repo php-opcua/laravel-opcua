@@ -41,7 +41,7 @@ jobs:
 
       - name: Start OPC UA test servers
         id: opcua
-        uses: GianfriAur/opcua-test-server-suite@v1.1.4
+        uses: php-opcua/uanetstandard-test-suite@v1.0.0
 
       - name: Run tests
         env:
@@ -67,5 +67,5 @@ jobs:
 
       - name: Server logs (on failure)
         if: failure()
-        working-directory: .opcua-test-server-suite
+        working-directory: .uanetstandard-test-suite
         run: docker compose logs --tail=100

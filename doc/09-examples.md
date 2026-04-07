@@ -5,7 +5,7 @@ Complete, copy-paste-ready code examples for all major features.
 ## Read a Single Value
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -18,7 +18,7 @@ $client->disconnect();
 ## Read Multiple Values (Array)
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -38,7 +38,7 @@ $client->disconnect();
 ## Read Multiple Values (Fluent Builder)
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -58,9 +58,9 @@ $client->disconnect();
 ## Write a Value
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
-use Gianfriaur\OpcuaPhpClient\Types\BuiltinType;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Types\BuiltinType;
+use PhpOpcua\Client\Types\StatusCode;
 
 $client = Opcua::connect();
 
@@ -73,11 +73,31 @@ if (StatusCode::isGood($status)) {
 $client->disconnect();
 ```
 
+## Write Without Explicit Type (Auto-Detection, v4.0+)
+
+When `auto_detect_write_type` is enabled (the default), you can omit the type parameter. The client reads the node's DataType attribute, caches it, and uses it for the write.
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Types\StatusCode;
+
+$client = Opcua::connect();
+
+// No BuiltinType needed — the client auto-detects that ns=2;i=1001 is Int32
+$status = $client->write('ns=2;i=1001', 42);
+
+if (StatusCode::isGood($status)) {
+    echo "Write OK (type auto-detected)\n";
+}
+
+$client->disconnect();
+```
+
 ## Write Multiple Values (Fluent Builder)
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Types\StatusCode;
 
 $client = Opcua::connect();
 
@@ -94,10 +114,31 @@ foreach ($results as $i => $status) {
 $client->disconnect();
 ```
 
+## Read with Refresh Parameter (v4.0+)
+
+When read metadata cache is enabled, use the `refresh` parameter to bypass the cache:
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+
+$client = Opcua::connect();
+$client->setReadMetadataCache(true);
+
+// Cached read (default)
+$dv = $client->read('ns=2;i=1001');
+echo "Cached: " . $dv->getValue() . "\n";
+
+// Force fresh read from server
+$dv = $client->read('ns=2;i=1001', refresh: true);
+echo "Fresh: " . $dv->getValue() . "\n";
+
+$client->disconnect();
+```
+
 ## Browse the Address Space
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -113,7 +154,7 @@ $client->disconnect();
 ## Recursive Browse
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -137,7 +178,7 @@ $client->disconnect();
 ## Path Resolution
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -153,10 +194,10 @@ $client->disconnect();
 ## Call a Method
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
-use Gianfriaur\OpcuaPhpClient\Types\Variant;
-use Gianfriaur\OpcuaPhpClient\Types\BuiltinType;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Types\Variant;
+use PhpOpcua\Client\Types\BuiltinType;
+use PhpOpcua\Client\Types\StatusCode;
 
 $client = Opcua::connect();
 
@@ -179,7 +220,7 @@ $client->disconnect();
 ## Subscribe to Data Changes
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -208,7 +249,7 @@ $client->disconnect();
 ## Historical Data
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -228,7 +269,7 @@ $client->disconnect();
 ## Secure Connection with Authentication
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 // Option 1: Via config/opcua.php (recommended)
 // 'connections' => [
@@ -263,7 +304,7 @@ $client->disconnect();
 ## Multiple Connections
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 // Connect to two PLCs simultaneously
 $plc1 = Opcua::connect('plc-line-1');
@@ -281,7 +322,7 @@ Opcua::disconnectAll();
 ## Dependency Injection in a Controller
 
 ```php
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
 use Illuminate\Http\JsonResponse;
 
 class PlcController extends Controller
@@ -301,7 +342,8 @@ class PlcController extends Controller
     public function write(OpcuaManager $opcua): JsonResponse
     {
         $client = $opcua->connect();
-        $status = $client->write('ns=2;i=1001', 42, BuiltinType::Int32);
+        // Type is optional in v4 — auto-detected when auto_detect_write_type is enabled
+        $status = $client->write('ns=2;i=1001', 42);
         $client->disconnect();
 
         return response()->json([
@@ -314,7 +356,7 @@ class PlcController extends Controller
 ## Type Discovery
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 $client = Opcua::connect();
 
@@ -332,10 +374,10 @@ $client->disconnect();
 ## Error Handling
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
-use Gianfriaur\OpcuaPhpClient\Exception\ConnectionException;
-use Gianfriaur\OpcuaPhpClient\Exception\ServiceException;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Exception\ConnectionException;
+use PhpOpcua\Client\Exception\ServiceException;
+use PhpOpcua\Client\Types\StatusCode;
 
 try {
     $client = Opcua::connect();
@@ -353,12 +395,127 @@ try {
 }
 ```
 
+## Trust Store Configuration (v4.0+)
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Security\TrustPolicy;
+
+$client = Opcua::connection();
+
+// Configure trust store
+$client->setTrustStorePath(storage_path('opcua/trust'));
+$client->setTrustPolicy(TrustPolicy::FingerprintAndExpiry);
+$client->autoAccept(true); // TOFU mode
+
+$client->connect('opc.tcp://192.168.1.100:4840');
+
+$dv = $client->read('i=2259');
+echo "ServerState: " . $dv->getValue() . "\n";
+
+$client->disconnect();
+```
+
+## Certificate Trust Management (v4.0+)
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Exception\UntrustedCertificateException;
+
+try {
+    $client = Opcua::connect();
+} catch (UntrustedCertificateException $e) {
+    echo "Untrusted certificate: " . $e->getFingerprint() . "\n";
+
+    // Approve the certificate and retry
+    $client = Opcua::connection();
+    $client->trustCertificate($e->getCertificate());
+    $client->connect('opc.tcp://192.168.1.100:4840');
+}
+
+// Later, revoke trust
+$client->untrustCertificate($derBytes);
+
+$client->disconnect();
+```
+
+## Event Dispatcher Setup (v4.0+)
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Events\AfterRead;
+use PhpOpcua\Client\Events\Connected;
+use Psr\EventDispatcher\EventDispatcherInterface;
+
+$client = Opcua::connect();
+
+// Attach Laravel's event dispatcher
+$client->setEventDispatcher(app(EventDispatcherInterface::class));
+
+// Now all OPC UA operations fire PSR-14 events
+$dv = $client->read('i=2259'); // fires BeforeRead + AfterRead
+
+$client->disconnect(); // fires Disconnected
+```
+
+## Modify Monitored Items (v4.0+)
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+
+$client = Opcua::connect();
+
+$sub = $client->createSubscription(publishingInterval: 500.0);
+
+$client->createMonitoredItems($sub->subscriptionId, [
+    ['nodeId' => 'ns=2;i=1001', 'clientHandle' => 1, 'samplingInterval' => 1000.0],
+    ['nodeId' => 'ns=2;i=1002', 'clientHandle' => 2, 'samplingInterval' => 1000.0],
+]);
+
+// Later, change the sampling interval for item 1
+$client->modifyMonitoredItems($sub->subscriptionId, [
+    ['monitoredItemId' => 1, 'samplingInterval' => 200.0],
+]);
+
+$client->deleteSubscription($sub->subscriptionId);
+$client->disconnect();
+```
+
+## Set Triggering (v4.0+)
+
+Link monitored items so that one item triggers reporting of others:
+
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+
+$client = Opcua::connect();
+
+$sub = $client->createSubscription(publishingInterval: 500.0);
+
+$client->createMonitoredItems($sub->subscriptionId, [
+    ['nodeId' => 'ns=2;i=1001', 'clientHandle' => 1],  // triggering item
+    ['nodeId' => 'ns=2;i=1002', 'clientHandle' => 2],  // triggered item
+    ['nodeId' => 'ns=2;i=1003', 'clientHandle' => 3],  // triggered item
+]);
+
+// When item 1 changes, also report items 2 and 3
+$client->setTriggering(
+    $sub->subscriptionId,
+    1,          // triggering monitored item ID
+    [2, 3],     // links to add
+    [],         // links to remove
+);
+
+$client->deleteSubscription($sub->subscriptionId);
+$client->disconnect();
+```
+
 ## Testing with MockClient
 
 ```php
-use Gianfriaur\OpcuaPhpClient\Testing\MockClient;
-use Gianfriaur\OpcuaPhpClient\Types\DataValue;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\Client\Testing\MockClient;
+use PhpOpcua\Client\Types\DataValue;
+use PhpOpcua\Client\Types\StatusCode;
 
 // In a Pest / PHPUnit test
 it('reads temperature from PLC', function () {

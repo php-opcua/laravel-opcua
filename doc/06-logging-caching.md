@@ -54,6 +54,58 @@ php artisan opcua:session --log-channel=stderr
 
 If not specified, the Laravel default log channel is used.
 
+## PSR-14 Event System (v4.0+)
+
+The client supports PSR-14 event dispatching. When an event dispatcher is attached, the client fires events for every significant operation -- 47 event types in total covering connections, reads, writes, subscriptions, security, and more.
+
+### Attaching an Event Dispatcher
+
+```php
+use Psr\EventDispatcher\EventDispatcherInterface;
+
+$client = Opcua::connect();
+$client->setEventDispatcher(app(EventDispatcherInterface::class));
+```
+
+### Automatic Injection via Laravel
+
+If your application binds `Psr\EventDispatcher\EventDispatcherInterface` in the container, you can configure `OpcuaManager` to inject it automatically. The `OpcuaServiceProvider` will resolve it and pass it to every client created through the manager.
+
+### Event Categories
+
+| Category | Example Events | Description |
+|----------|---------------|-------------|
+| Connection | `Connected`, `Disconnected`, `Reconnecting` | Lifecycle of the TCP/secure channel |
+| Read | `BeforeRead`, `AfterRead`, `ReadFailed` | Single and multi-read operations |
+| Write | `BeforeWrite`, `AfterWrite`, `WriteFailed` | Single and multi-write operations |
+| Browse | `BeforeBrowse`, `AfterBrowse` | Address space navigation |
+| Subscription | `SubscriptionCreated`, `DataChangeNotification` | Pub/sub monitoring |
+| Security | `CertificateTrusted`, `CertificateRejected`, `UntrustedCertificate` | Trust store decisions |
+| Method | `BeforeCall`, `AfterCall` | Method invocations |
+| Discovery | `EndpointsDiscovered`, `DataTypesDiscovered` | Endpoint and type discovery |
+
+### Listening for Events
+
+Use Laravel's event system or any PSR-14 compatible listener provider:
+
+```php
+use PhpOpcua\Client\Events\AfterRead;
+
+// In a Laravel EventServiceProvider
+protected $listen = [
+    AfterRead::class => [
+        LogOpcuaReads::class,
+    ],
+];
+```
+
+### Per-Client Override
+
+```php
+$client = Opcua::connect();
+$client->setEventDispatcher(null); // disable events for this client
+```
+
 ## PSR-16 Caching
 
 Every OPC UA client created by `OpcuaManager` automatically receives Laravel's cache store. The cache stores browse results, endpoint discovery, and type discovery data.
@@ -97,7 +149,7 @@ $client->flushCache();
 ### Override Per-Client
 
 ```php
-use Gianfriaur\OpcuaPhpClient\Cache\InMemoryCache;
+use PhpOpcua\Client\Cache\InMemoryCache;
 
 $client = Opcua::connect();
 $client->setCache(new InMemoryCache(300)); // 300s TTL
@@ -135,3 +187,55 @@ php artisan opcua:session --cache-store=redis
 ```
 
 If not specified, the Laravel default cache store is used.
+
+## Read Metadata Cache (v4.0+)
+
+When `read_metadata_cache` is enabled, the client caches non-Value attribute reads (DisplayName, DataType, Description, etc.). These attributes rarely change, so caching them avoids redundant round-trips.
+
+### Configuration
+
+```dotenv
+OPCUA_READ_METADATA_CACHE=true
+```
+
+Or in `config/opcua.php`:
+
+```php
+'connections' => [
+    'default' => [
+        // ...
+        'read_metadata_cache' => true,
+    ],
+],
+```
+
+### Fluent API
+
+```php
+$client = Opcua::connect();
+$client->setReadMetadataCache(true);
+```
+
+### Refresh Parameter
+
+The `read()` method accepts a `refresh` parameter to bypass the metadata cache for a specific call:
+
+```php
+// Normal read — uses metadata cache if enabled
+$dv = $client->read('ns=2;i=1001');
+
+// Force a fresh read from the server, ignoring any cached metadata
+$dv = $client->read('ns=2;i=1001', refresh: true);
+```
+
+This is useful when you know the server has changed metadata (e.g. after reconfiguration) and you want to pick up the latest values.
+
+## Write Type Auto-Detection Cache (v4.0+)
+
+When `auto_detect_write_type` is enabled (the default), the client discovers the OPC UA data type of a node before writing, so you can omit the type parameter on `write()`. The discovered types are cached for subsequent writes to the same node.
+
+```dotenv
+OPCUA_AUTO_DETECT_WRITE_TYPE=true
+```
+
+This caching works alongside PSR-16 caching. The type discovery results are stored in the same cache backend configured for the client.

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
-use Gianfriaur\OpcuaLaravel\Tests\Integration\Helpers\TestHelper;
-use Gianfriaur\OpcuaPhpClient\Client;
-use Gianfriaur\OpcuaPhpClient\OpcUaClientInterface;
-use Gianfriaur\OpcuaPhpClient\Security\SecurityMode;
-use Gianfriaur\OpcuaPhpClient\Security\SecurityPolicy;
-use Gianfriaur\OpcuaPhpClient\Types\NodeId;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
-use Gianfriaur\OpcuaSessionManager\Client\ManagedClient;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
+use PhpOpcua\LaravelOpcua\Tests\Integration\Helpers\TestHelper;
+use PhpOpcua\Client\Client;
+use PhpOpcua\Client\OpcUaClientInterface;
+use PhpOpcua\Client\Security\SecurityMode;
+use PhpOpcua\Client\Security\SecurityPolicy;
+use PhpOpcua\Client\Types\NodeId;
+use PhpOpcua\Client\Types\StatusCode;
+use PhpOpcua\SessionManager\Client\ManagedClient;
 
 beforeAll(fn() => TestHelper::startDaemon());
 afterAll(fn() => TestHelper::stopDaemon());

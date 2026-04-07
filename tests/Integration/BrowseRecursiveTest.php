@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\Tests\Integration\Helpers\TestHelper;
-use Gianfriaur\OpcuaPhpClient\Types\BrowseDirection;
-use Gianfriaur\OpcuaPhpClient\Types\BrowseNode;
-use Gianfriaur\OpcuaPhpClient\Types\NodeId;
-use Gianfriaur\OpcuaPhpClient\Types\ReferenceDescription;
+use PhpOpcua\LaravelOpcua\Tests\Integration\Helpers\TestHelper;
+use PhpOpcua\Client\Types\BrowseDirection;
+use PhpOpcua\Client\Types\BrowseNode;
+use PhpOpcua\Client\Types\NodeId;
+use PhpOpcua\Client\Types\ReferenceDescription;
 
 beforeAll(fn() => TestHelper::startDaemon());
 afterAll(fn() => TestHelper::stopDaemon());

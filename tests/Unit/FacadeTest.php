@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
 
 describe('Opcua Facade', function () {
 

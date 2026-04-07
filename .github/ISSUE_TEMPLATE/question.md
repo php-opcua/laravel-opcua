@@ -23,5 +23,5 @@ What are you trying to achieve? Include relevant code if applicable.
 - PHP version:
 - Laravel version:
 - Library version:
-- opcua-php-client version:
+- opcua-client version:
 - OPC UA server: (e.g., open62541, Prosys, Unified Automation, etc.)

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
-use Gianfriaur\OpcuaPhpClient\Testing\MockClient;
-use Gianfriaur\OpcuaPhpClient\Types\DataValue;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
+use PhpOpcua\Client\Testing\MockClient;
+use PhpOpcua\Client\Types\DataValue;
+use PhpOpcua\Client\Types\StatusCode;
 
 describe('MockClient integration with OpcuaManager', function () {
 

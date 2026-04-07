@@ -14,13 +14,13 @@ If you have any questions or need help getting started, don't hesitate to open a
 - `ext-openssl`
 - Composer
 - Laravel 11.x or 12.x (for integration context)
-- [opcua-test-server-suite](https://github.com/GianfriAur/opcua-test-server-suite) (for integration tests)
+- [uanetstandard-test-suite](https://github.com/php-opcua/uanetstandard-test-suite) (for integration tests)
 
 ### Installation
 
 ```bash
-git clone https://github.com/gianfriaur/opcua-laravel-client.git
-cd opcua-laravel-client
+git clone https://github.com/php-opcua/laravel-opcua.git
+cd laravel-opcua
 composer install
 ```
 
@@ -29,8 +29,8 @@ composer install
 Integration tests require the OPC UA test server suite running locally:
 
 ```bash
-git clone https://github.com/GianfriAur/opcua-test-server-suite.git
-cd opcua-test-server-suite
+git clone https://github.com/php-opcua/uanetstandard-test-suite.git
+cd uanetstandard-test-suite
 docker compose up -d
 ```
 
@@ -97,15 +97,15 @@ This package follows Laravel idioms: service provider for registration, Facade f
 
 ### Transparent Session Management
 
-`OpcuaManager::createClient()` checks for the daemon's Unix socket. If present, a `ManagedClient` is returned. If not, a direct `Client`. Application code should never need to care which mode it's in.
+`OpcuaManager` checks for the daemon's Unix socket. If present, a `ManagedClient` is created and configured via `configureManagedClient()`. If not, a `ClientBuilder` is created, configured via `configureBuilder()`, and `connect()` returns a connected `Client`. Application code should never need to care which mode it's in.
 
 ### Automatic Logger & Cache Injection
 
-The `OpcuaServiceProvider` resolves `Psr\Log\LoggerInterface` and `Psr\SimpleCache\CacheInterface` from the Laravel container and passes them to `OpcuaManager`. Every client gets these defaults via `configureClient()`. Explicit per-connection overrides take precedence.
+The `OpcuaServiceProvider` resolves `Psr\Log\LoggerInterface`, `Psr\SimpleCache\CacheInterface`, and `Psr\EventDispatcher\EventDispatcherInterface` from the Laravel container and passes them to `OpcuaManager`. Every client gets these defaults via `configureBuilder()` (direct mode) or `configureManagedClient()` (managed mode). Explicit per-connection overrides take precedence.
 
 ### Thin Wrapper
 
-This package wraps `opcua-php-client` and `opcua-php-client-session-manager` — it should not reimplement, duplicate, or override their behavior. New OPC UA features are exposed via the Facade PHPDoc and proxied through `OpcuaManager::__call()`.
+This package wraps `php-opcua/opcua-client` and `php-opcua/opcua-session-manager` — it should not reimplement, duplicate, or override their behavior. New OPC UA features are exposed via the Facade PHPDoc and proxied through `OpcuaManager::__call()`.
 
 ## Guidelines
 
@@ -129,8 +129,8 @@ This package wraps `opcua-php-client` and `opcua-php-client-session-manager` —
 
 ### OpcuaManager Changes
 
-- `configureClient()` applies connection settings in a fixed order — add new settings at the end
-- Logger and cache injection follow a two-tier priority: explicit config key > default from service provider
+- Direct mode uses `configureBuilder()`, managed mode uses `configureManagedClient()` — add new settings at the end of both methods
+- Logger, cache, and event dispatcher injection follow a two-tier priority: explicit config key > default from service provider
 - New configuration keys must have a corresponding `.env` variable in `config/opcua.php`
 
 ### Facade PHPDoc
@@ -174,4 +174,4 @@ This package wraps `opcua-php-client` and `opcua-php-client-session-manager` —
 
 ## Reporting Issues
 
-Use the [issue tracker](https://github.com/gianfriaur/opcua-laravel-client/issues) to report bugs, request features, or ask questions.
+Use the [issue tracker](https://github.com/php-opcua/laravel-opcua/issues) to report bugs, request features, or ask questions.

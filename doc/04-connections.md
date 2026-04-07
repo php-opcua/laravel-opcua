@@ -27,13 +27,19 @@ $client = Opcua::connect();
 $client = Opcua::connect('plc-line-1');
 ```
 
-### Getting a Connection Without Connecting
+### Getting a Connection Without Connecting (Managed Mode Only)
+
+> **v4.0 breaking change:** In direct mode, `Opcua::connection()` now returns an already-connected `Client`. The `OpcUaClientInterface` no longer exposes setter methods (`setTimeout()`, etc.), so there is no pre-connect configuration step. If you need to customise timeout or other settings, set them in `config/opcua.php` or pass inline config to `connectTo()`.
+>
+> In managed mode (session manager running), `connection()` returns a `ManagedClient` that still supports setter methods before the first operation.
 
 ```php
+// Direct mode — returns a connected Client (same as connect())
 $client = Opcua::connection('plc-line-1');
-// Configure further, then connect manually
-$client->setTimeout(15.0);
-$client->connect('opc.tcp://10.0.0.10:4840');
+
+// Managed mode — setter methods are still available
+// $client = Opcua::connection('plc-line-1');
+// $client->setTimeout(15.0);
 ```
 
 ### Switching the Default
@@ -95,7 +101,7 @@ Calling `disconnect()` removes the cached instance.
 The `OpcuaManager` is registered as a singleton and can be injected anywhere:
 
 ```php
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
 
 class PlcController extends Controller
 {
@@ -135,9 +141,13 @@ if (Opcua::isSessionManagerRunning()) {
 }
 ```
 
-## How configureClient Works
+## How Connection Configuration Works
 
-When a connection is created, `OpcuaManager::configureClient()` applies the following in order:
+When a connection is created, `OpcuaManager` applies configuration differently depending on the mode:
+
+### Direct Mode (`configureBuilder`)
+
+A `ClientBuilder` is configured and then `connect()` is called, returning a fully connected `Client`. All settings are immutable after connection.
 
 1. Security policy and mode
 2. User credentials (username/password)
@@ -147,5 +157,24 @@ When a connection is created, `OpcuaManager::configureClient()` applies the foll
 6. Auto-retry
 7. Batch size
 8. Browse max depth
-9. Logger (explicit config → Laravel default)
-10. Cache (explicit config → Laravel default)
+9. Trust store path and trust policy
+10. Auto-accept and auto-accept-force
+11. Auto-detect write type
+12. Read metadata cache
+13. Logger (explicit config or Laravel default)
+14. Cache (explicit config or Laravel default)
+
+### Managed Mode (`configureManagedClient`)
+
+A `ManagedClient` is created and setter methods are called. Settings can be adjusted after creation.
+
+1. Security policy and mode
+2. User credentials (username/password)
+3. Client certificate and CA
+4. User certificate
+5. Timeout
+6. Auto-retry
+7. Batch size
+8. Browse max depth
+9. Logger (explicit config or Laravel default)
+10. Cache (explicit config or Laravel default)

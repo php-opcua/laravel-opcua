@@ -1,30 +1,30 @@
 # OPC UA Laravel Client — Full Reference
 
-> Laravel integration for OPC UA built on opcua-php-client and opcua-php-client-session-manager.
+> Laravel integration for OPC UA built on opcua-client and opcua-session-manager.
 
 ## Package Metadata
 
-- Repository: https://github.com/GianfriAur/opcua-laravel-client
-- Packagist: https://packagist.org/packages/gianfriaur/opcua-laravel-client
+- Repository: https://github.com/php-opcua/laravel-opcua
+- Packagist: https://packagist.org/packages/php-opcua/laravel-opcua
 - License: MIT
 - PHP: >= 8.2
 - Laravel: 11.x, 12.x
-- Dependencies: gianfriaur/opcua-php-client ^3.0.0, gianfriaur/opcua-php-client-session-manager ^3.0.0, illuminate/support, illuminate/console, illuminate/contracts
+- Dependencies: php-opcua/opcua-client ^4.0.0, php-opcua/opcua-session-manager ^4.0.0, illuminate/support, illuminate/console, illuminate/contracts
 
 ## Architecture
 
-OpcuaManager checks for the session manager daemon's Unix socket at connection time. If present, ManagedClient (daemon-proxied) is created. Otherwise, a direct Client (new TCP per request) is used. The switch is transparent.
+OpcuaManager checks for the session manager daemon's Unix socket at connection time. If present, ManagedClient (daemon-proxied) is created. Otherwise, a direct Client via ClientBuilder::create()->...->connect() is used. The switch is transparent.
 
 ```
 HTTP Request → Opcua::connect()
   ├── socket exists? → ManagedClient (IPC to daemon → TCP to OPC UA server)
-  └── socket missing? → Client (direct TCP to OPC UA server)
+  └── socket missing? → ClientBuilder::create()->...->connect() (direct TCP to OPC UA server)
 ```
 
 ## Installation
 
 ```bash
-composer require gianfriaur/opcua-laravel-client
+composer require php-opcua/laravel-opcua
 php artisan vendor:publish --tag=opcua-config
 ```
 
@@ -62,6 +62,12 @@ Three sections: default connection name, session_manager, connections.
 | auto_retry | null | Max reconnection retries |
 | batch_size | null | Max items per batch |
 | browse_max_depth | 10 | Default browseRecursive depth |
+| trust_store_path | storage/app/opcua-trust-store | Directory for trusted/rejected server certificates |
+| trust_policy | TrustPolicy::Strict | Trust policy: Strict, AcceptOnce, AcceptAll |
+| auto_accept | false | Auto-accept unknown server certificates on first connection |
+| auto_accept_force | false | Force-accept even previously rejected certificates |
+| auto_detect_write_type | true | Enable auto-detection of write value types |
+| read_metadata_cache | true | Cache node metadata for read operations |
 
 ## OpcuaManager API
 
@@ -77,7 +83,9 @@ Three sections: default connection name, session_manager, connections.
 
 ### Proxied Methods (via __call to default connection)
 
-All OpcUaClientInterface methods are proxied: read, readMulti, write, writeMulti, browse, browseAll, browseRecursive, browseWithContinuation, browseNext, resolveNodeId, translateBrowsePaths, call, createSubscription, createMonitoredItems, createEventMonitoredItem, deleteMonitoredItems, deleteSubscription, publish, transferSubscriptions, republish, historyReadRaw, historyReadProcessed, historyReadAtTime, getEndpoints, discoverDataTypes, connect, disconnect, reconnect, isConnected, getConnectionState, setTimeout, getTimeout, setAutoRetry, getAutoRetry, setBatchSize, getBatchSize, getServerMaxNodesPerRead, getServerMaxNodesPerWrite, setDefaultBrowseMaxDepth, getDefaultBrowseMaxDepth, setLogger, getLogger, setCache, getCache, invalidateCache, flushCache, getExtensionObjectRepository.
+All OpcUaClientInterface methods are proxied: read, readMulti, write, writeMulti, browse, browseAll, browseRecursive, browseWithContinuation, browseNext, resolveNodeId, translateBrowsePaths, call, createSubscription, createMonitoredItems, createEventMonitoredItem, modifyMonitoredItems, setTriggering, deleteMonitoredItems, deleteSubscription, publish, transferSubscriptions, republish, historyReadRaw, historyReadProcessed, historyReadAtTime, getEndpoints, discoverDataTypes, trustCertificate, untrustCertificate, connect, disconnect, reconnect, isConnected, getConnectionState, getTimeout, getAutoRetry, getBatchSize, getServerMaxNodesPerRead, getServerMaxNodesPerWrite, getDefaultBrowseMaxDepth, getLogger, getCache, invalidateCache, flushCache, getExtensionObjectRepository.
+
+Note: In v4, OpcUaClientInterface no longer exposes setter methods (setTimeout, setAutoRetry, setBatchSize, setDefaultBrowseMaxDepth, setLogger, setCache). These are configured at build time via ClientBuilder or through the Laravel config.
 
 ## Facade (Opcua)
 
@@ -104,7 +112,12 @@ $dv = $client->read('i=2259');
 echo $dv->getValue();     // scalar value
 echo $dv->statusCode;     // int (0 = Good)
 echo $dv->sourceTimestamp; // ?DateTimeImmutable
+
+// Force metadata refresh (bypasses read metadata cache)
+$dv = $client->read('i=2259', refresh: true);
 ```
+
+Signature: `read(string|NodeId $nodeId, bool $refresh = false): DataValue`
 
 All methods accept string NodeIds: 'i=2259', 'ns=2;i=1001', 'ns=2;s=MyNode'.
 
@@ -122,7 +135,14 @@ $results = $client->readMulti()->node('i=2259')->value()->execute();
 
 ```php
 $status = $client->write('ns=2;i=1001', 42, BuiltinType::Int32);
+
+// With auto-detection (type is nullable in v4)
+$status = $client->write('ns=2;i=1001', 42);
 ```
+
+Signature: `write(string|NodeId $nodeId, mixed $value, ?BuiltinType $type = null): int`
+
+When `$type` is null and `auto_detect_write_type` is enabled (default), the client reads the node's data type metadata and selects the correct BuiltinType. Throws WriteTypeDetectionException on failure, WriteTypeMismatchException on mismatch.
 
 ### writeMulti — array or builder
 
@@ -165,6 +185,16 @@ $pub = $client->publish();
 
 $client->deleteSubscription($sub->subscriptionId);
 
+// Modify monitored items
+$modifyResults = $client->modifyMonitoredItems($sub->subscriptionId, [
+    ['monitoredItemId' => $itemId, 'requestedParameters' => ['samplingInterval' => 200.0]],
+]);
+// MonitoredItemModifyResult[]: statusCode, revisedSamplingInterval, revisedQueueSize
+
+// Set triggering links between monitored items
+$triggerResult = $client->setTriggering($sub->subscriptionId, $triggeringItemId, linksToAdd: [$linkedItemId]);
+// SetTriggeringResult: addResults, removeResults
+
 // Session recovery
 $results = $client->transferSubscriptions([$subId]); // TransferResult[]
 $result = $client->republish($subId, $seqNum); // array
@@ -178,24 +208,65 @@ $values = $client->historyReadProcessed('ns=2;i=1001', $start, $end, 60000.0, $a
 $values = $client->historyReadAtTime('ns=2;i=1001', [$t1, $t2, $t3]);
 ```
 
+## Trust Store
+
+FileTrustStore manages trusted and rejected server certificates on disk.
+
+```php
+// Configured via config/opcua.php:
+// 'trust_store_path' => storage_path('app/opcua-trust-store'),
+// 'trust_policy' => TrustPolicy::Strict,
+// 'auto_accept' => false,
+// 'auto_accept_force' => false,
+
+// Manually trust/untrust a certificate
+$client->trustCertificate($derEncodedCert);
+$client->untrustCertificate($derEncodedCert);
+```
+
+TrustPolicy enum values: Strict (only explicitly trusted certs), AcceptOnce (trust on first contact, reject if changed), AcceptAll (trust everything).
+
+Throws UntrustedCertificateException when a server presents a certificate not in the trust store under Strict policy.
+
+## PSR-14 Events
+
+47 events dispatched via Laravel's event dispatcher, covering:
+- Connection lifecycle (connecting, connected, disconnecting, disconnected, reconnecting)
+- Read/write operations (reading, read, writing, written)
+- Browse operations (browsing, browsed)
+- Subscriptions (creating, created, deleting, deleted, publishing, published)
+- Monitored items (creating, created, modifying, modified, deleting, deleted, triggering, triggered)
+- Method calls (calling, called)
+- History reads (reading, read)
+- Discovery (discovering, discovered)
+- Trust store (trusting, trusted, untrusting, untrusted)
+- Errors (operation-specific error events)
+
+All events are immutable DTOs. Register listeners via Laravel's EventServiceProvider or Event facade.
+
+## New Exceptions (v4)
+
+- UntrustedCertificateException — server certificate is not trusted by the trust store
+- WriteTypeDetectionException — auto-detection of the write value type failed (node metadata unreadable)
+- WriteTypeMismatchException — the detected data type does not match the provided PHP value
+
 ## Cache
 
 ```php
-$client->setCache(new InMemoryCache(300)); // or Laravel's cache
-$client->setCache(null);                   // disable
 $client->invalidateCache('i=85');          // clear one node
 $client->flushCache();                     // clear all
 $client->browse('i=85', useCache: false);  // skip per-call
 ```
 
+Cache is configured at build time via ClientBuilder. Laravel's cache store is injected automatically by the service provider. The `read_metadata_cache` config key controls whether node metadata is cached for read operations.
+
 ## Logging
 
 ```php
-$client->setLogger($myLogger);  // any PSR-3 logger
-$client->getLogger();           // current logger
+$client->getLogger(); // current logger (PSR-3)
 ```
 
-Laravel's default logger is injected automatically by the service provider.
+Laravel's default logger is injected automatically by the service provider. In v4, the logger is configured at build time via ClientBuilder (no runtime setLogger on the interface).
 
 ## Type Discovery
 
@@ -211,6 +282,7 @@ $repo = $client->getExtensionObjectRepository();
 3 modes: None, Sign, SignAndEncrypt.
 3 auth methods: Anonymous, Username/Password, X.509 Certificate.
 Auto-generated client certificates when policy/mode set but no cert provided.
+Certificate trust management via FileTrustStore with configurable TrustPolicy.
 
 ## MockClient (Testing)
 
@@ -228,22 +300,27 @@ DataValue factories: ofBoolean, ofInt32, ofUInt32, ofInt16, ofUInt16, ofDouble, 
 
 - SubscriptionResult: subscriptionId, revisedPublishingInterval, revisedLifetimeCount, revisedMaxKeepAliveCount
 - MonitoredItemResult: statusCode, monitoredItemId, revisedSamplingInterval, revisedQueueSize
+- MonitoredItemModifyResult: statusCode, revisedSamplingInterval, revisedQueueSize
+- SetTriggeringResult: addResults, removeResults
 - CallResult: statusCode, inputArgumentResults, outputArguments
 - BrowseResultSet: references, continuationPoint
 - PublishResult: subscriptionId, sequenceNumber, moreNotifications, notifications, availableSequenceNumbers
 - BrowsePathResult: statusCode, targets
 - BrowsePathTarget: targetId, remainingPathIndex
 - TransferResult: statusCode, availableSequenceNumbers
+- ExtensionObject: typeId, body (for server-defined structured types)
 
 ## Related Packages
 
-- gianfriaur/opcua-php-client — Pure PHP OPC UA client (core protocol)
-- gianfriaur/opcua-php-client-session-manager — Daemon-based session persistence
-- opcua-test-server-suite — Docker-based OPC UA test servers
+- php-opcua/opcua-client — Pure PHP OPC UA client (core protocol)
+- php-opcua/opcua-session-manager — Daemon-based session persistence
+- php-opcua/opcua-cli — CLI tool for OPC UA operations
+- php-opcua/opcua-client-nodeset — Pre-generated PHP types from OPC Foundation companion specifications
+- php-opcua/uanetstandard-test-suite — Docker-based OPC UA test servers (UA-.NETStandard)
 
 ## Testing
 
-66+ unit tests, 20+ integration test files. Uses Pest PHP. Integration tests require opcua-test-server-suite Docker containers.
+80+ unit tests, 20+ integration test files. Uses Pest PHP. Integration tests require uanetstandard-test-suite Docker containers.
 
 ```bash
 ./vendor/bin/pest tests/Unit/

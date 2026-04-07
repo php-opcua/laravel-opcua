@@ -13,7 +13,7 @@ A clear and concise description of the bug.
 ## Steps to Reproduce
 
 ```php
-use Gianfriaur\OpcuaLaravel\Facades\Opcua;
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
 
 // Minimal code to reproduce the issue
 ```
@@ -31,8 +31,8 @@ What actually happened. Include error messages or exceptions if applicable.
 - PHP version:
 - Laravel version:
 - Library version:
-- opcua-php-client version:
-- opcua-php-client-session-manager version:
+- opcua-client version:
+- opcua-session-manager version:
 - OPC UA server: (e.g., open62541, Prosys, Unified Automation, etc.)
 - OS:
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\Commands\SessionCommand;
+use PhpOpcua\LaravelOpcua\Commands\SessionCommand;
 
 if (!function_exists('app')) {
     function app(?string $abstract = null, array $parameters = []): mixed
@@ -32,7 +32,7 @@ if (!function_exists('windows_os')) {
         return PHP_OS_FAMILY === 'Windows';
     }
 }
-use Gianfriaur\OpcuaSessionManager\Daemon\SessionManagerDaemon;
+use PhpOpcua\SessionManager\Daemon\SessionManagerDaemon;
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;

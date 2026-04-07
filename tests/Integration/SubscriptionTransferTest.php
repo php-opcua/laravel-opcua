@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\Tests\Integration\Helpers\TestHelper;
-use Gianfriaur\OpcuaPhpClient\Exception\ServiceException;
-use Gianfriaur\OpcuaPhpClient\Types\StatusCode;
+use PhpOpcua\LaravelOpcua\Tests\Integration\Helpers\TestHelper;
+use PhpOpcua\Client\Exception\ServiceException;
+use PhpOpcua\Client\Types\StatusCode;
 
 beforeAll(fn() => TestHelper::startDaemon());
 afterAll(fn() => TestHelper::stopDaemon());

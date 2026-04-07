@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-composer require gianfriaur/opcua-laravel-client
+composer require php-opcua/laravel-opcua
 ```
 
 Publish the configuration file:
@@ -74,20 +74,26 @@ Each connection can have its own endpoint, security settings, and credentials:
 'connections' => [
 
     'default' => [
-        'endpoint'           => env('OPCUA_ENDPOINT', 'opc.tcp://localhost:4840'),
-        'security_policy'    => env('OPCUA_SECURITY_POLICY', 'None'),
-        'security_mode'      => env('OPCUA_SECURITY_MODE', 'None'),
-        'username'           => env('OPCUA_USERNAME'),
-        'password'           => env('OPCUA_PASSWORD'),
-        'client_certificate' => env('OPCUA_CLIENT_CERT'),
-        'client_key'         => env('OPCUA_CLIENT_KEY'),
-        'ca_certificate'     => env('OPCUA_CA_CERT'),
-        'user_certificate'   => env('OPCUA_USER_CERT'),
-        'user_key'           => env('OPCUA_USER_KEY'),
-        'timeout'            => env('OPCUA_TIMEOUT', 5.0),
-        'auto_retry'         => env('OPCUA_AUTO_RETRY'),
-        'batch_size'         => env('OPCUA_BATCH_SIZE'),
-        'browse_max_depth'   => env('OPCUA_BROWSE_MAX_DEPTH', 10),
+        'endpoint'              => env('OPCUA_ENDPOINT', 'opc.tcp://localhost:4840'),
+        'security_policy'       => env('OPCUA_SECURITY_POLICY', 'None'),
+        'security_mode'         => env('OPCUA_SECURITY_MODE', 'None'),
+        'username'              => env('OPCUA_USERNAME'),
+        'password'              => env('OPCUA_PASSWORD'),
+        'client_certificate'    => env('OPCUA_CLIENT_CERT'),
+        'client_key'            => env('OPCUA_CLIENT_KEY'),
+        'ca_certificate'        => env('OPCUA_CA_CERT'),
+        'user_certificate'      => env('OPCUA_USER_CERT'),
+        'user_key'              => env('OPCUA_USER_KEY'),
+        'timeout'               => env('OPCUA_TIMEOUT', 5.0),
+        'auto_retry'            => env('OPCUA_AUTO_RETRY'),
+        'batch_size'            => env('OPCUA_BATCH_SIZE'),
+        'browse_max_depth'      => env('OPCUA_BROWSE_MAX_DEPTH', 10),
+        'trust_store_path'      => env('OPCUA_TRUST_STORE_PATH'),
+        'trust_policy'          => env('OPCUA_TRUST_POLICY', 'reject'),
+        'auto_accept'           => env('OPCUA_AUTO_ACCEPT', false),
+        'auto_accept_force'     => env('OPCUA_AUTO_ACCEPT_FORCE', false),
+        'auto_detect_write_type' => env('OPCUA_AUTO_DETECT_WRITE_TYPE', true),
+        'read_metadata_cache'   => env('OPCUA_READ_METADATA_CACHE', true),
     ],
 
 ],
@@ -106,6 +112,12 @@ Each connection can have its own endpoint, security settings, and credentials:
 | `auto_retry` | `null` | Max reconnection retries |
 | `batch_size` | `null` | Max items per read/write batch |
 | `browse_max_depth` | `10` | Default depth for `browseRecursive()` |
+| `trust_store_path` | `null` | Path to the certificate trust store directory |
+| `trust_policy` | `reject` | Trust policy: `reject`, `accept_once`, or `accept_always` |
+| `auto_accept` | `false` | Automatically accept unknown server certificates |
+| `auto_accept_force` | `false` | Force accept even revoked/expired certificates |
+| `auto_detect_write_type` | `true` | Auto-detect OPC UA type on `write()` when type is omitted |
+| `read_metadata_cache` | `true` | Cache node metadata to avoid redundant reads |
 
 ## Multiple Connections
 
@@ -158,6 +170,16 @@ OPCUA_TIMEOUT=10.0
 OPCUA_AUTO_RETRY=3
 OPCUA_BATCH_SIZE=100
 OPCUA_BROWSE_MAX_DEPTH=20
+
+# Trust store & certificate acceptance
+OPCUA_TRUST_STORE_PATH=/path/to/trust-store
+OPCUA_TRUST_POLICY=reject
+OPCUA_AUTO_ACCEPT=false
+OPCUA_AUTO_ACCEPT_FORCE=false
+
+# Write & read behaviour
+OPCUA_AUTO_DETECT_WRITE_TYPE=true
+OPCUA_READ_METADATA_CACHE=true
 
 # Session manager
 OPCUA_SESSION_MANAGER_ENABLED=true

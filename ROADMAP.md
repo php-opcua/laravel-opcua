@@ -12,7 +12,7 @@
 - [ ] Event broadcasting — fire Laravel events on subscription notifications (e.g. `OpcuaDataChanged`, `OpcuaEventReceived`) so listeners and broadcasting channels work out of the box
 - [ ] Blade/Livewire component — `<x-opcua-value node="ns=2;i=1001" />` for real-time PLC value display in dashboards
 - [ ] Horizon-style dashboard — web-based monitoring UI for active sessions, connection health, operation history, and daemon status
-- [ ] Symfony integration — Symfony bundle wrapping the client with service container, config, and console commands (`gianfriaur/opcua-symfony-client`)
+- [ ] Symfony integration — Symfony bundle wrapping the client with service container, config, and console commands (`php-opcua/symfony-opcua`)
 
 ### Improvements
 
@@ -23,13 +23,13 @@
 
 ## Won't Do (by design)
 
-### Merge opcua-php-client or session-manager code
+### Merge opcua-client or session-manager code
 
-This package is a thin Laravel wrapper. It delegates all OPC UA protocol work to `opcua-php-client` and all session persistence to `opcua-php-client-session-manager`. It will never reimplement or duplicate their logic. New OPC UA features are automatically available through the `__call()` proxy and Facade PHPDoc updates — no code changes in this package beyond documentation.
+This package is a thin Laravel wrapper. It delegates all OPC UA protocol work to `opcua-client` and all session persistence to `opcua-session-manager`. It will never reimplement or duplicate their logic. New OPC UA features are automatically available through the `__call()` proxy and Facade PHPDoc updates — no code changes in this package beyond documentation.
 
 ### Custom Cache / Logger Implementations
 
-This package uses Laravel's bound `Psr\Log\LoggerInterface` and `Psr\SimpleCache\CacheInterface`. It will not ship its own cache drivers or logger implementations — that's what `config/logging.php` and `config/cache.php` are for. The underlying `opcua-php-client` provides `InMemoryCache` and `FileCache` for use cases outside Laravel.
+This package uses Laravel's bound `Psr\Log\LoggerInterface` and `Psr\SimpleCache\CacheInterface`. It will not ship its own cache drivers or logger implementations — that's what `config/logging.php` and `config/cache.php` are for. The underlying `opcua-client` provides `InMemoryCache` and `FileCache` for use cases outside Laravel.
 
 ### Eloquent Models / Database Integration
 
@@ -41,4 +41,4 @@ While OPC UA subscriptions produce real-time data, bridging them to Laravel Broa
 
 ---
 
-Have a suggestion? Open an [issue](https://github.com/gianfriaur/opcua-laravel-client/issues) or check the [contributing guide](CONTRIBUTING.md).
+Have a suggestion? Open an [issue](https://github.com/php-opcua/laravel-opcua/issues) or check the [contributing guide](CONTRIBUTING.md).

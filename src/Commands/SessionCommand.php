@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Gianfriaur\OpcuaLaravel\Commands;
+namespace PhpOpcua\LaravelOpcua\Commands;
 
-use Gianfriaur\OpcuaSessionManager\Daemon\SessionManagerDaemon;
+use PhpOpcua\SessionManager\Daemon\SessionManagerDaemon;
 use Illuminate\Console\Command;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;

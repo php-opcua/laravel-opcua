@@ -2,24 +2,58 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\Tests\Integration\Helpers\TestHelper;
-use Gianfriaur\OpcuaPhpClient\Cache\InMemoryCache;
-use Gianfriaur\OpcuaPhpClient\Types\NodeId;
+use PhpOpcua\LaravelOpcua\Tests\Integration\Helpers\TestHelper;
+use PhpOpcua\Client\Cache\InMemoryCache;
+use PhpOpcua\Client\Types\NodeId;
+use PhpOpcua\SessionManager\Client\ManagedClient;
 
 beforeAll(fn() => TestHelper::startDaemon());
 afterAll(fn() => TestHelper::stopDaemon());
 
 foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'] as $mode => $factory) {
 
-    describe("Cache via OpcuaManager ({$mode} mode)", function () use ($factory) {
+    describe("Cache via OpcuaManager ({$mode} mode)", function () use ($factory, $mode) {
 
-        it('sets and gets a cache driver', function () use ($factory) {
-            $manager = TestHelper::$factory();
+        if ($mode === 'managed') {
+            it('sets and gets a cache driver via runtime setter', function () use ($factory) {
+                $manager = TestHelper::$factory();
+                try {
+                    $client = $manager->connection();
+                    $cache = new InMemoryCache(300);
+
+                    $client->setCache($cache);
+
+                    expect($client->getCache())->toBe($cache);
+                } finally {
+                    TestHelper::safeDisconnect('default', $manager);
+                }
+            })->group('integration');
+
+            it('disables caching with setCache(null)', function () use ($factory) {
+                $manager = TestHelper::$factory();
+                try {
+                    $client = $manager->connection();
+                    $client->setCache(null);
+
+                    expect($client->getCache())->toBeNull();
+                } finally {
+                    TestHelper::safeDisconnect('default', $manager);
+                }
+            })->group('integration');
+        }
+
+        it('cache is configured from config', function () use ($factory) {
+            $cache = new InMemoryCache(300);
+            $manager = TestHelper::$factory([
+                'connections' => [
+                    'default' => [
+                        'endpoint' => TestHelper::ENDPOINT_NO_SECURITY,
+                        'cache' => $cache,
+                    ],
+                ],
+            ]);
             try {
-                $client = $manager->connection();
-                $cache = new InMemoryCache(300);
-
-                $client->setCache($cache);
+                $client = $manager->connect();
 
                 expect($client->getCache())->toBe($cache);
             } finally {
@@ -28,10 +62,17 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
         })->group('integration');
 
         it('browse results are cached on second call', function () use ($factory) {
-            $manager = TestHelper::$factory();
+            $cache = new InMemoryCache(300);
+            $manager = TestHelper::$factory([
+                'connections' => [
+                    'default' => [
+                        'endpoint' => TestHelper::ENDPOINT_NO_SECURITY,
+                        'cache' => $cache,
+                    ],
+                ],
+            ]);
             try {
                 $client = $manager->connect();
-                $client->setCache(new InMemoryCache(300));
 
                 $refs1 = $client->browse('i=85', useCache: true);
                 $refs2 = $client->browse('i=85', useCache: true);
@@ -43,10 +84,17 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
         })->group('integration');
 
         it('invalidateCache clears a specific node', function () use ($factory) {
-            $manager = TestHelper::$factory();
+            $cache = new InMemoryCache(300);
+            $manager = TestHelper::$factory([
+                'connections' => [
+                    'default' => [
+                        'endpoint' => TestHelper::ENDPOINT_NO_SECURITY,
+                        'cache' => $cache,
+                    ],
+                ],
+            ]);
             try {
                 $client = $manager->connect();
-                $client->setCache(new InMemoryCache(300));
 
                 $client->browse('i=85', useCache: true);
                 $client->invalidateCache('i=85');
@@ -59,10 +107,17 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
         })->group('integration');
 
         it('flushCache clears all cached data', function () use ($factory) {
-            $manager = TestHelper::$factory();
+            $cache = new InMemoryCache(300);
+            $manager = TestHelper::$factory([
+                'connections' => [
+                    'default' => [
+                        'endpoint' => TestHelper::ENDPOINT_NO_SECURITY,
+                        'cache' => $cache,
+                    ],
+                ],
+            ]);
             try {
                 $client = $manager->connect();
-                $client->setCache(new InMemoryCache(300));
 
                 $client->browse('i=85', useCache: true);
                 $client->flushCache();
@@ -75,10 +130,17 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
         })->group('integration');
 
         it('useCache=false bypasses the cache', function () use ($factory) {
-            $manager = TestHelper::$factory();
+            $cache = new InMemoryCache(300);
+            $manager = TestHelper::$factory([
+                'connections' => [
+                    'default' => [
+                        'endpoint' => TestHelper::ENDPOINT_NO_SECURITY,
+                        'cache' => $cache,
+                    ],
+                ],
+            ]);
             try {
                 $client = $manager->connect();
-                $client->setCache(new InMemoryCache(300));
 
                 $refs = $client->browse('i=85', useCache: false);
 
@@ -88,11 +150,17 @@ foreach (['direct' => 'createDirectManager', 'managed' => 'createManagedManager'
             }
         })->group('integration');
 
-        it('disables caching with setCache(null)', function () use ($factory) {
-            $manager = TestHelper::$factory();
+        it('disables caching with cache=null in config', function () use ($factory) {
+            $manager = TestHelper::$factory([
+                'connections' => [
+                    'default' => [
+                        'endpoint' => TestHelper::ENDPOINT_NO_SECURITY,
+                        'cache' => null,
+                    ],
+                ],
+            ]);
             try {
-                $client = $manager->connection();
-                $client->setCache(null);
+                $client = $manager->connect();
 
                 expect($client->getCache())->toBeNull();
             } finally {

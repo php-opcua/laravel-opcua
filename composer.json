@@ -1,5 +1,5 @@
 {
-    "name": "gianfriaur/opcua-laravel-client",
+    "name": "php-opcua/laravel-opcua",
     "description": "Laravel integration for OPC UA client with optional session manager support",
     "type": "library",
     "license": "MIT",
@@ -11,8 +11,9 @@
     ],
     "require": {
         "php": "^8.2",
-        "gianfriaur/opcua-php-client": "^3.0.0",
-        "gianfriaur/opcua-php-client-session-manager": "^3.0.0",
+        "php-opcua/opcua-client": "^4.0.0",
+        "php-opcua/opcua-session-manager": "^4.0.0",
+        "psr/event-dispatcher": "^1.0",
         "illuminate/support": "^11.0|^12.0|^13.0",
         "illuminate/console": "^11.0|^12.0|^13.0",
         "illuminate/contracts": "^11.0|^12.0|^13.0"
@@ -25,21 +26,21 @@
     },
     "autoload": {
         "psr-4": {
-            "Gianfriaur\\OpcuaLaravel\\": "src/"
+            "PhpOpcua\\LaravelOpcua\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Gianfriaur\\OpcuaLaravel\\Tests\\": "tests/"
+            "PhpOpcua\\LaravelOpcua\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Gianfriaur\\OpcuaLaravel\\OpcuaServiceProvider"
+                "PhpOpcua\\LaravelOpcua\\OpcuaServiceProvider"
             ],
             "aliases": {
-                "Opcua": "Gianfriaur\\OpcuaLaravel\\Facades\\Opcua"
+                "Opcua": "PhpOpcua\\LaravelOpcua\\Facades\\Opcua"
             }
         }
     },

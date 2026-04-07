@@ -129,8 +129,8 @@ When a security policy and mode are configured but no `client_certificate` / `cl
 Security can also be set programmatically on a client instance:
 
 ```php
-use Gianfriaur\OpcuaPhpClient\Security\SecurityPolicy;
-use Gianfriaur\OpcuaPhpClient\Security\SecurityMode;
+use PhpOpcua\Client\Security\SecurityPolicy;
+use PhpOpcua\Client\Security\SecurityMode;
 
 $client = Opcua::connection();
 $client->setSecurityPolicy(SecurityPolicy::Basic256Sha256);
@@ -210,7 +210,7 @@ Client                          Server
 
 **Phase 3 — Symmetric (Session + Messages).** All subsequent messages (CreateSession, ActivateSession, Read, Write, etc.) use the derived symmetric keys — signed with HMAC and encrypted with AES-CBC.
 
-> This is all handled transparently by the underlying `opcua-php-client` library. You only need to configure the policy, mode, and certificates.
+> This is all handled transparently by the underlying `opcua-client` library. You only need to configure the policy, mode, and certificates.
 
 ## Endpoint Discovery
 
@@ -263,3 +263,124 @@ php artisan opcua:session --socket-mode=0660
 ```
 
 > **Note:** When using the daemon with certificate-based OPC UA connections, certificate paths must be absolute. Set `allowed_cert_dirs` in `config/opcua.php` to restrict which directories can be accessed.
+
+## Trust Store (v4.0+)
+
+The trust store provides persistent certificate trust management for OPC UA connections. Instead of relying solely on a CA certificate chain, you can build a local trust store of known server certificates.
+
+### FileTrustStore
+
+`FileTrustStore` persists trusted certificates as DER files in a directory on disk:
+
+```php
+use PhpOpcua\Client\Security\FileTrustStore;
+
+$trustStore = new FileTrustStore('/var/opcua/trust');
+```
+
+The directory is created automatically if it does not exist. Each trusted certificate is stored as a file named by its SHA-256 fingerprint.
+
+### TrustPolicy Enum
+
+The `TrustPolicy` enum controls how certificates are validated against the trust store:
+
+| Value | Enum | Description |
+|-------|------|-------------|
+| `fingerprint` | `TrustPolicy::Fingerprint` | Matches certificates by SHA-256 fingerprint only |
+| `fingerprint+expiry` | `TrustPolicy::FingerprintAndExpiry` | Matches by fingerprint and rejects expired certificates |
+| `full` | `TrustPolicy::Full` | Full X.509 validation including chain, expiry, and key usage |
+
+```php
+use PhpOpcua\Client\Security\TrustPolicy;
+
+$client->setTrustPolicy(TrustPolicy::Fingerprint);
+```
+
+### Configuration
+
+```dotenv
+OPCUA_TRUST_STORE_PATH=/var/opcua/trust
+OPCUA_TRUST_POLICY=fingerprint
+OPCUA_AUTO_ACCEPT=false
+OPCUA_AUTO_ACCEPT_FORCE=false
+```
+
+Or in `config/opcua.php`:
+
+```php
+'connections' => [
+    'default' => [
+        'endpoint'           => 'opc.tcp://10.0.0.10:4840',
+        'trust_store_path'   => '/var/opcua/trust',
+        'trust_policy'       => 'fingerprint',       // fingerprint, fingerprint+expiry, full
+        'auto_accept'        => false,
+        'auto_accept_force'  => false,
+    ],
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `trust_store_path` | `string\|null` | `null` | Directory for persisting trusted certificates. When `null`, no trust store is used. |
+| `trust_policy` | `string\|null` | `null` | Trust validation policy. One of: `fingerprint`, `fingerprint+expiry`, `full`. |
+| `auto_accept` | `bool` | `false` | Automatically trust unknown server certificates on first encounter (Trust On First Use / TOFU). |
+| `auto_accept_force` | `bool` | `false` | Like `auto_accept`, but also overwrites previously trusted certificates if they change. Use with caution. |
+
+### Auto-Accept (TOFU Mode)
+
+When `auto_accept` is `true`, the client automatically trusts any server certificate it encounters for the first time and stores it in the trust store. Subsequent connections verify the server presents the same certificate.
+
+This is useful for development and controlled environments where manual certificate exchange is impractical.
+
+> **Warning:** TOFU mode is vulnerable to man-in-the-middle attacks on the first connection. For production environments, pre-populate the trust store or use `auto_accept_force=false`.
+
+### Programmatic Trust API
+
+You can trust or untrust certificates programmatically:
+
+```php
+$client = Opcua::connect();
+
+// Trust a certificate (DER-encoded binary)
+$client->trustCertificate($derBytes);
+
+// Remove a previously trusted certificate
+$client->untrustCertificate($derBytes);
+```
+
+This is useful when building admin interfaces that let operators approve or revoke server certificates.
+
+### UntrustedCertificateException
+
+When the client encounters an untrusted server certificate and `auto_accept` is `false`, it throws an `UntrustedCertificateException`:
+
+```php
+use PhpOpcua\Client\Exception\UntrustedCertificateException;
+
+try {
+    $client = Opcua::connect();
+} catch (UntrustedCertificateException $e) {
+    $fingerprint = $e->getFingerprint();
+    $der = $e->getCertificate();
+
+    // Present to the user for approval, then:
+    $client->trustCertificate($der);
+    $client = Opcua::connect(); // retry
+}
+```
+
+The exception provides:
+- `getFingerprint()` -- SHA-256 fingerprint of the untrusted certificate
+- `getCertificate()` -- DER-encoded certificate bytes for storage/inspection
+
+### Fluent API
+
+```php
+use PhpOpcua\Client\Security\TrustPolicy;
+
+$client = Opcua::connection();
+$client->setTrustStorePath('/var/opcua/trust');
+$client->setTrustPolicy(TrustPolicy::FingerprintAndExpiry);
+$client->autoAccept(true);
+$client->connect('opc.tcp://192.168.1.100:4840');
+```

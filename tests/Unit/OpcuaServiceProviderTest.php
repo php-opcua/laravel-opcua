@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-use Gianfriaur\OpcuaLaravel\Commands\SessionCommand;
-use Gianfriaur\OpcuaLaravel\OpcuaManager;
-use Gianfriaur\OpcuaLaravel\OpcuaServiceProvider;
+use PhpOpcua\LaravelOpcua\Commands\SessionCommand;
+use PhpOpcua\LaravelOpcua\OpcuaManager;
+use PhpOpcua\LaravelOpcua\OpcuaServiceProvider;
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\SimpleCache\CacheInterface;
 
 if (!function_exists('config_path')) {
@@ -19,7 +20,7 @@ if (!function_exists('config_path')) {
     }
 }
 
-function makeApp(?LoggerInterface $logger = null, ?CacheInterface $cache = null): Container
+function makeApp(?LoggerInterface $logger = null, ?CacheInterface $cache = null, ?EventDispatcherInterface $eventDispatcher = null): Container
 {
     $app = new Container();
     Container::setInstance($app);
@@ -59,6 +60,10 @@ function makeApp(?LoggerInterface $logger = null, ?CacheInterface $cache = null)
 
     if ($cache !== null) {
         $app->instance(CacheInterface::class, $cache);
+    }
+
+    if ($eventDispatcher !== null) {
+        $app->instance(EventDispatcherInterface::class, $eventDispatcher);
     }
 
     return $app;
@@ -135,6 +140,19 @@ describe('OpcuaServiceProvider', function () {
             $ref = new ReflectionProperty($manager, 'defaultCache');
 
             expect($ref->getValue($manager))->toBe($cache);
+        });
+
+        it('injects Laravel event dispatcher into OpcuaManager when bound', function () {
+            $dispatcher = Mockery::mock(EventDispatcherInterface::class);
+            $app = makeApp(eventDispatcher: $dispatcher);
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            $manager = $app->make(OpcuaManager::class);
+            $ref = new ReflectionProperty($manager, 'defaultEventDispatcher');
+
+            expect($ref->getValue($manager))->toBe($dispatcher);
         });
 
         it('leaves defaults null when Laravel logger/cache are not bound', function () {

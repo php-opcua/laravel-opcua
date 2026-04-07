@@ -83,6 +83,18 @@ return [
             'auto_retry' => env('OPCUA_AUTO_RETRY',null),
             'batch_size' => env('OPCUA_BATCH_SIZE',null),
             'browse_max_depth' => env('OPCUA_BROWSE_MAX_DEPTH',10),
+
+            // Trust store (optional, v4.0+)
+            'trust_store_path' => env('OPCUA_TRUST_STORE_PATH',null),
+            'trust_policy' => env('OPCUA_TRUST_POLICY',null),            // fingerprint, fingerprint+expiry, full
+            'auto_accept' => env('OPCUA_AUTO_ACCEPT',false),
+            'auto_accept_force' => env('OPCUA_AUTO_ACCEPT_FORCE',false),
+
+            // Write type auto-detection (v4.0+ — auto-detects the OPC UA type on write)
+            'auto_detect_write_type' => env('OPCUA_AUTO_DETECT_WRITE_TYPE',true),
+
+            // Read metadata cache (v4.0+ — caches non-Value attribute reads)
+            'read_metadata_cache' => env('OPCUA_READ_METADATA_CACHE',false),
         ],
 
     ],

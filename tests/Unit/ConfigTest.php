@@ -59,6 +59,12 @@ describe('opcua config', function () {
             'auto_retry',
             'batch_size',
             'browse_max_depth',
+            'trust_store_path',
+            'trust_policy',
+            'auto_accept',
+            'auto_accept_force',
+            'auto_detect_write_type',
+            'read_metadata_cache',
         ]);
     });
 
