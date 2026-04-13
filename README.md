@@ -298,6 +298,12 @@ echo $mock->callCount('read'); // 1
 | [laravel-opcua](https://github.com/php-opcua/laravel-opcua) | Laravel integration — service provider, facade, config (this package)                                                                                                                                                                                                                                                             |
 | [uanetstandard-test-suite](https://github.com/php-opcua/uanetstandard-test-suite) | Docker-based OPC UA test servers (UA-.NETStandard) for integration testing                                                                                                                                                                                                                                          |
 
+## Community
+
+Have questions, ideas, or want to share what you've built? Join the [GitHub Discussions](https://github.com/php-opcua/laravel-opcua/discussions).
+
+**Connected a PLC, SCADA system, or OPC UA server?** We're building a community-driven list of tested hardware and software. Share your experience in [Tested Hardware & Software](https://github.com/php-opcua/laravel-opcua/discussions/categories/tested-hardware-software) — even a one-liner like "Siemens S7-1500, works fine" helps other users know what to expect.
+
 ## Contributing
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
