@@ -65,6 +65,7 @@ describe('opcua config', function () {
             'auto_accept_force',
             'auto_detect_write_type',
             'read_metadata_cache',
+            'log_channel',
         ]);
     });
 

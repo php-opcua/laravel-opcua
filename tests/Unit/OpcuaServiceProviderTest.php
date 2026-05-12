@@ -168,6 +168,42 @@ describe('OpcuaServiceProvider', function () {
             expect($loggerRef->getValue($manager))->toBeNull();
             expect($cacheRef->getValue($manager))->toBeNull();
         });
+
+        it('wires a logger resolver when Laravel log manager is bound', function () {
+            $app = makeApp();
+
+            $channelLogger = new NullLogger();
+            $logManager = new class($channelLogger) {
+                public function __construct(private LoggerInterface $logger) {}
+                public function channel(string $name): LoggerInterface
+                {
+                    return $this->logger;
+                }
+            };
+            $app->instance('log', $logManager);
+
+            $provider = new OpcuaServiceProvider($app);
+            $provider->register();
+
+            $manager = $app->make(OpcuaManager::class);
+            $resolverRef = new ReflectionProperty($manager, 'loggerResolver');
+            $resolver = $resolverRef->getValue($manager);
+
+            expect($resolver)->toBeInstanceOf(Closure::class);
+            expect($resolver('stderr'))->toBe($channelLogger);
+        });
+
+        it('leaves logger resolver null when log manager is not bound', function () {
+            $app = makeApp();
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            $manager = $app->make(OpcuaManager::class);
+            $resolverRef = new ReflectionProperty($manager, 'loggerResolver');
+
+            expect($resolverRef->getValue($manager))->toBeNull();
+        });
     });
 
     describe('boot', function () {

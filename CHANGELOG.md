@@ -1,5 +1,32 @@
 # Changelog
 
+## [4.3.0] - 2026-05-05
+
+### Added
+
+- Per-connection `log_channel` config key — Laravel channel name resolved lazily, no Facade needed in config files.
+- `OpcuaManager::setLogger(LoggerInterface)` runtime override (best-effort propagation to existing connections).
+- `OpcuaManager::useConsoleLogger(OutputInterface, …, ?string $dateFormat = 'Y-m-d H:i:s.v')` — Symfony `ConsoleLogger` wrapped with millisecond timestamp by default; pass `dateFormat: null` to disable.
+- `OpcuaManager::getLogger()`.
+- `Logging\TimestampedLogger` — generic PSR-3 decorator that prepends a formatted timestamp.
+- `OpcuaServiceProvider` wires a `log`-manager → channel resolver into the manager.
+
+### Changed
+
+- `OpcuaManager::__construct` gained an optional `?\Closure $loggerResolver` parameter (5th, default `null`, BC-safe).
+- Logger resolution priority: runtime override → config `'logger'` → config `'log_channel'` → default logger.
+- Bumped `php-opcua/opcua-client` `^4.2.0` → `^4.3.0` and `php-opcua/opcua-session-manager` `^4.2.0` → `^4.3.1`. Notable downstream impact:
+  - `NodeManagementModule` is back in the default module list — `addNodes()` / `deleteNodes()` / `addReferences()` / `deleteReferences()` reachable through `Opcua::*`. Servers without the service set raise `ServiceUnsupportedException` on first call (still a subclass of `ServiceException`, existing handlers keep matching).
+  - Top-level `ServiceFault` now decodes to `ServiceException` instead of the misleading `EncodingException: Buffer underflow`.
+  - Wire-format compliance fixes: `RequestHeader.timestamp` is a valid `UtcTime`, anonymous `policyId` discovered for all security modes, NodeManagement TypeIds reference DefaultBinary encoding, ECC sequence numbers per OPC UA 1.05.4. Servers stricter than UA-.NETStandard (open62541 etc.) are now reachable.
+  - **Cache codec breaking change** — persistent caches must be flushed on upgrade. `unserialize()` removed from every cache code path; `WireCacheCodec` (JSON gated by allowlist) is the new default. Pre-v4.3 entries are silently discarded on first access. New `ClientBuilder::setCacheCodec()` is available if you need to override.
+  - Daemon: `--version` flag, `umask(0077)` around bind closes the socket-permission race, NDJSON 64 KiB per-frame cap, IPv4-mapped IPv6 loopback handled, `username` no longer leaked via `list`, Windows path / URL redaction in error messages, conservative PID-check fallback.
+  - Daemon: Unix-socket path length is now validated before bind — long paths get a clear `DaemonException` instead of a confusing `chmod(): No such file or directory` after silent kernel truncation.
+
+### Tests
+
+- +12 unit tests; full suite **161 passing**.
+
 ## [4.2.0] - 2026-04-17
 
 ### Changed

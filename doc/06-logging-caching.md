@@ -29,6 +29,87 @@ $client = Opcua::connectTo('opc.tcp://...', [
 
 An explicit logger in the config takes precedence over the default Laravel logger.
 
+### Per-Connection Log Channel (v4.3+)
+
+Each entry in `config/opcua.php → connections` accepts a `log_channel` key naming a Laravel log channel. The package resolves it lazily at connection time, so the config file stays free of `Log::channel(...)` Facade calls (which would explode if the config is loaded before the framework is fully booted):
+
+```php
+'connections' => [
+    'default' => [
+        'endpoint' => 'opc.tcp://localhost:4840',
+        'log_channel' => 'stderr', // resolved via Laravel's log manager on demand
+    ],
+],
+```
+
+Or via env:
+
+```dotenv
+OPCUA_DEFAULT_LOG_CHANNEL=stderr
+```
+
+When omitted (or when the channel cannot be resolved), the manager falls back to the container-injected default logger.
+
+### Logger Resolution Priority
+
+When a connection is created, the manager picks a logger from the first source that yields one:
+
+1. **Runtime override** — set via `OpcuaManager::setLogger()` / `useConsoleLogger()` (see below)
+2. **Config `logger`** — a `LoggerInterface` instance in the connection config
+3. **Config `log_channel`** — a Laravel channel name in the connection config
+4. **Default logger** — the one auto-injected by the service provider
+
+### Runtime Override (v4.3+)
+
+`OpcuaManager` exposes `setLogger()` / `getLogger()` / `useConsoleLogger()` to swap the logger after the manager has been built. The override applies to every future connection and is best-effort propagated to existing connections that expose `setLogger()`:
+
+```php
+use Psr\Log\NullLogger;
+
+Opcua::setLogger(new NullLogger()); // silence everything app-wide
+$logger = Opcua::getLogger();        // retrieve the current override (or null)
+```
+
+The most common reason to reach for this is an Artisan command that wants OPC UA logs streamed to its `OutputInterface`, respecting `-v` / `-vv` / `-vvv`:
+
+```php
+use Illuminate\Console\Command;
+
+class SyncOpcuaTags extends Command
+{
+    protected $signature = 'opcua:sync-tags';
+
+    public function handle(): int
+    {
+        // Route client logs to the console, with millisecond timestamps.
+        Opcua::useConsoleLogger($this->output);
+
+        $client = Opcua::connect();
+        // ...
+
+        return self::SUCCESS;
+    }
+}
+```
+
+`useConsoleLogger()` wraps Symfony's `ConsoleLogger` (so `error`/`warning` are always shown, `notice` needs `-v`, `info` `-vv`, `debug` `-vvv`) and prepends `[YYYY-MM-DD HH:MM:SS.mmm]` to every line by default. Pass `dateFormat: null` to disable the prefix, or any DateTime format string to customize it:
+
+```php
+Opcua::useConsoleLogger($this->output, dateFormat: null);          // bare ConsoleLogger
+Opcua::useConsoleLogger($this->output, dateFormat: 'H:i:s.v');     // time-only
+```
+
+### TimestampedLogger Decorator (v4.3+)
+
+`PhpOpcua\LaravelOpcua\Logging\TimestampedLogger` is a generic PSR-3 decorator that prepends a formatted timestamp before forwarding to any inner logger. It is what `useConsoleLogger()` uses internally, but you can apply it to any logger you already have:
+
+```php
+use PhpOpcua\LaravelOpcua\Logging\TimestampedLogger;
+
+$decorated = new TimestampedLogger($someLogger, 'Y-m-d H:i:s.v');
+Opcua::setLogger($decorated);
+```
+
 ### What Gets Logged
 
 | Level | Events |

@@ -12,10 +12,13 @@ use PhpOpcua\Client\Security\SecurityPolicy;
 use PhpOpcua\Client\TrustStore\FileTrustStore;
 use PhpOpcua\Client\TrustStore\TrustPolicy;
 use PhpOpcua\SessionManager\Client\ManagedClient;
+use PhpOpcua\LaravelOpcua\Logging\TimestampedLogger;
 use PhpOpcua\SessionManager\Ipc\TransportFactory;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
+use Symfony\Component\Console\Logger\ConsoleLogger;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Manages OPC UA client connections within a Laravel application.
@@ -27,18 +30,123 @@ class OpcuaManager
     /** @var array<string, OpcUaClientInterface> */
     protected array $connections = [];
 
+    /** Runtime override applied via setLogger(); takes precedence over per-connection config. */
+    protected ?LoggerInterface $runtimeLogger = null;
+
     /**
      * @param array $config
      * @param ?LoggerInterface $defaultLogger
      * @param ?CacheInterface $defaultCache
      * @param ?EventDispatcherInterface $defaultEventDispatcher
+     * @param ?\Closure(string): ?LoggerInterface $loggerResolver Resolves a log channel name to a logger instance. Used to honour the per-connection 'log_channel' config key without needing a Facade in config files.
      */
     public function __construct(
         protected array $config,
         protected ?LoggerInterface $defaultLogger = null,
         protected ?CacheInterface $defaultCache = null,
         protected ?EventDispatcherInterface $defaultEventDispatcher = null,
+        protected ?\Closure $loggerResolver = null,
     ) {}
+
+    /**
+     * Resolve the logger to apply for a given connection config.
+     *
+     * Priority:
+     *   1. Runtime override set via setLogger() / useConsoleLogger()
+     *   2. $config['logger'] (LoggerInterface instance)
+     *   3. $config['log_channel'] (string, resolved via the loggerResolver)
+     *   4. The default logger injected at construction
+     *
+     * @param array $config
+     * @return ?LoggerInterface
+     */
+    protected function resolveLogger(array $config): ?LoggerInterface
+    {
+        if ($this->runtimeLogger !== null) {
+            return $this->runtimeLogger;
+        }
+
+        if (isset($config['logger']) && $config['logger'] instanceof LoggerInterface) {
+            return $config['logger'];
+        }
+
+        if (!empty($config['log_channel']) && is_string($config['log_channel']) && $this->loggerResolver !== null) {
+            $resolved = ($this->loggerResolver)($config['log_channel']);
+            if ($resolved instanceof LoggerInterface) {
+                return $resolved;
+            }
+        }
+
+        return $this->defaultLogger;
+    }
+
+    /**
+     * Set a logger at runtime.
+     *
+     * @param LoggerInterface $logger
+     * @return $this
+     */
+    public function setLogger(LoggerInterface $logger): self
+    {
+        $this->runtimeLogger = $logger;
+
+        foreach ($this->connections as $client) {
+            if (method_exists($client, 'setLogger')) {
+                $client->setLogger($logger);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Convenience: attach a Symfony ConsoleLogger that respects the command's
+     * verbosity flags (-v, -vv, -vvv). Applies to all current and future
+     * connections.
+     *
+     * Default mapping (Symfony ConsoleLogger):
+     *   error/warning     → always shown
+     *   notice            → -v
+     *   info              → -vv
+     *   debug             → -vvv
+     *
+     * By default each line is prefixed with a millisecond-precision timestamp.
+     * Pass $dateFormat = null to disable, or any DateTime format to customize.
+     *
+     * @param OutputInterface $output
+     * @param array<string,int> $verbosityMap
+     * @param array<string,string> $formatLevelMap
+     * @param ?string $dateFormat DateTime format for the timestamp prefix, or null to disable.
+     * @return $this
+     */
+    public function useConsoleLogger(
+        OutputInterface $output,
+        array $verbosityMap = [],
+        array $formatLevelMap = [],
+        ?string $dateFormat = 'Y-m-d H:i:s.v',
+    ): self {
+        if (!class_exists(ConsoleLogger::class)) {
+            throw new \RuntimeException('Symfony ConsoleLogger is not available. Install symfony/console.');
+        }
+
+        $logger = new ConsoleLogger($output, $verbosityMap, $formatLevelMap);
+
+        if ($dateFormat !== null) {
+            $logger = new TimestampedLogger($logger, $dateFormat);
+        }
+
+        return $this->setLogger($logger);
+    }
+
+    /**
+     * Get the runtime logger override, if any.
+     *
+     * @return ?LoggerInterface
+     */
+    public function getLogger(): ?LoggerInterface
+    {
+        return $this->runtimeLogger;
+    }
 
     /**
      * Get an OPC UA client connection by name.
@@ -214,10 +322,9 @@ class OpcuaManager
             $builder->setDefaultBrowseMaxDepth((int) $config['browse_max_depth']);
         }
 
-        if (isset($config['logger']) && $config['logger'] instanceof LoggerInterface) {
-            $builder->setLogger($config['logger']);
-        } elseif ($this->defaultLogger !== null) {
-            $builder->setLogger($this->defaultLogger);
+        $logger = $this->resolveLogger($config);
+        if ($logger !== null) {
+            $builder->setLogger($logger);
         }
 
         if (array_key_exists('cache', $config)) {
@@ -313,10 +420,9 @@ class OpcuaManager
             $client->setDefaultBrowseMaxDepth((int) $config['browse_max_depth']);
         }
 
-        if (isset($config['logger']) && $config['logger'] instanceof LoggerInterface) {
-            $client->setLogger($config['logger']);
-        } elseif ($this->defaultLogger !== null) {
-            $client->setLogger($this->defaultLogger);
+        $logger = $this->resolveLogger($config);
+        if ($logger !== null) {
+            $client->setLogger($logger);
         }
 
         if (array_key_exists('cache', $config)) {

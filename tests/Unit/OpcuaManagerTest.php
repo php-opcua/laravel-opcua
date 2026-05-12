@@ -662,6 +662,80 @@ describe('OpcuaManager', function () {
             $method->invoke($manager, $mock, ['logger' => $explicitLogger]);
         });
 
+        it('resolves logger from log_channel string via resolver', function () {
+            $channelLogger = Mockery::mock(LoggerInterface::class);
+            $resolver = function (string $channel) use ($channelLogger): ?LoggerInterface {
+                expect($channel)->toBe('stderr');
+                return $channelLogger;
+            };
+            $manager = new OpcuaManager(makeConfig(), loggerResolver: $resolver);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($channelLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['log_channel' => 'stderr']);
+        });
+
+        it('log_channel takes precedence over default logger', function () {
+            $defaultLogger = Mockery::mock(LoggerInterface::class);
+            $channelLogger = Mockery::mock(LoggerInterface::class);
+            $resolver = fn(string $channel): ?LoggerInterface => $channelLogger;
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger, loggerResolver: $resolver);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($channelLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['log_channel' => 'stderr']);
+        });
+
+        it('explicit logger instance takes precedence over log_channel', function () {
+            $explicitLogger = Mockery::mock(LoggerInterface::class);
+            $resolver = function (string $channel): ?LoggerInterface {
+                throw new RuntimeException('resolver should not be called when an explicit logger is set');
+            };
+            $manager = new OpcuaManager(makeConfig(), loggerResolver: $resolver);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($explicitLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['logger' => $explicitLogger, 'log_channel' => 'stderr']);
+        });
+
+        it('falls back to default logger when log_channel resolver returns null', function () {
+            $defaultLogger = Mockery::mock(LoggerInterface::class);
+            $resolver = fn(string $channel): ?LoggerInterface => null;
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger, loggerResolver: $resolver);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($defaultLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['log_channel' => 'unknown']);
+        });
+
+        it('ignores log_channel when no resolver is provided', function () {
+            $defaultLogger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger);
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($defaultLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['log_channel' => 'stderr']);
+        });
+
+        it('runtime setLogger() override beats config logger and log_channel', function () {
+            $configLogger = Mockery::mock(LoggerInterface::class);
+            $runtimeLogger = Mockery::mock(LoggerInterface::class);
+            $defaultLogger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig(), defaultLogger: $defaultLogger);
+            $manager->setLogger($runtimeLogger);
+
+            $mock = Mockery::mock(ClientBuilderInterface::class);
+            $mock->shouldReceive('setLogger')->once()->with($runtimeLogger)->andReturnSelf();
+
+            $method = new ReflectionMethod($manager, 'configureBuilder');
+            $method->invoke($manager, $mock, ['logger' => $configLogger, 'log_channel' => 'stderr']);
+        });
+
         it('applies explicit cache from config', function () {
             $cache = Mockery::mock(CacheInterface::class);
             $manager = new OpcuaManager(makeConfig());
@@ -849,6 +923,55 @@ describe('OpcuaManager', function () {
 
             $method = new ReflectionMethod($manager, 'configureBuilder');
             $method->invoke($manager, $mock, ['read_metadata_cache' => null]);
+        });
+    });
+
+    describe('runtime logger', function () {
+
+        it('setLogger() stores the logger as runtime override', function () {
+            $logger = Mockery::mock(LoggerInterface::class);
+            $manager = new OpcuaManager(makeConfig());
+            $result = $manager->setLogger($logger);
+
+            expect($result)->toBe($manager);
+            expect($manager->getLogger())->toBe($logger);
+        });
+
+        it('setLogger() best-effort propagates to existing connections that support it', function () {
+            $logger = Mockery::mock(LoggerInterface::class);
+            // ManagedClient exposes setLogger; bare OpcUaClientInterface does not.
+            $supporting = Mockery::mock(ManagedClient::class);
+            $supporting->shouldReceive('setLogger')->once()->with($logger);
+            $bare = Mockery::mock(\PhpOpcua\Client\OpcUaClientInterface::class);
+            $bare->shouldNotReceive('setLogger');
+
+            $manager = new OpcuaManager(makeConfig());
+            $ref = new ReflectionProperty($manager, 'connections');
+            $ref->setValue($manager, ['managed' => $supporting, 'direct' => $bare]);
+
+            $manager->setLogger($logger);
+        });
+
+        it('useConsoleLogger() wraps in a TimestampedLogger by default', function () {
+            $output = Mockery::mock(\Symfony\Component\Console\Output\OutputInterface::class);
+            $output->shouldIgnoreMissing();
+            $manager = new OpcuaManager(makeConfig());
+
+            $result = $manager->useConsoleLogger($output);
+
+            expect($result)->toBe($manager);
+            expect($manager->getLogger())->toBeInstanceOf(\PhpOpcua\LaravelOpcua\Logging\TimestampedLogger::class);
+        });
+
+        it('useConsoleLogger() returns a bare ConsoleLogger when dateFormat is null', function () {
+            $output = Mockery::mock(\Symfony\Component\Console\Output\OutputInterface::class);
+            $output->shouldIgnoreMissing();
+            $manager = new OpcuaManager(makeConfig());
+
+            $manager->useConsoleLogger($output, dateFormat: null);
+
+            expect($manager->getLogger())->toBeInstanceOf(\Symfony\Component\Console\Logger\ConsoleLogger::class);
+            expect($manager->getLogger())->not->toBeInstanceOf(\PhpOpcua\LaravelOpcua\Logging\TimestampedLogger::class);
         });
     });
 

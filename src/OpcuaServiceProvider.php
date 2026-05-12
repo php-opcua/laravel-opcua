@@ -32,11 +32,23 @@ class OpcuaServiceProvider extends ServiceProvider
                 ? $app->make(EventDispatcherInterface::class)
                 : null;
 
+            $loggerResolver = $app->bound('log')
+                ? static function (string $channel) use ($app): ?LoggerInterface {
+                    $manager = $app['log'];
+                    if (!is_object($manager) || !method_exists($manager, 'channel')) {
+                        return null;
+                    }
+                    $resolved = $manager->channel($channel);
+                    return $resolved instanceof LoggerInterface ? $resolved : null;
+                }
+                : null;
+
             return new OpcuaManager(
                 $app['config']['opcua'],
                 $logger,
                 $cache,
                 $eventDispatcher,
+                $loggerResolver,
             );
         });
 

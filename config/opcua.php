@@ -114,6 +114,14 @@ return [
             // Read metadata cache (v4.0+ — caches non-Value attribute reads)
             'read_metadata_cache' => env('OPCUA_READ_METADATA_CACHE',false),
 
+            // Client-side logging (optional) — name of a Laravel log channel.
+            // The package resolves it lazily at connection time, so you don't
+            // need a Facade in this config file. When null, falls back to
+            // Laravel's default logger (LOG_CHANNEL).
+            // Example: set OPCUA_DEFAULT_LOG_CHANNEL=stderr to stream client
+            // logs to the console when running an artisan command.
+            'log_channel' => 'stdout',
+
             // Auto-connect (optional) — when true and auto_publish is enabled,
             // the daemon connects to this endpoint on startup and registers
             // the subscriptions defined below.
