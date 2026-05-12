@@ -25,7 +25,7 @@
 
 ### Tests
 
-- +12 unit tests; full suite **161 passing**.
+- +12 unit tests.
 
 ## [4.2.0] - 2026-04-17
 

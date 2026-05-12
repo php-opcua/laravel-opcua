@@ -254,7 +254,7 @@ Event::listen(AlarmActivated::class, function ($e) {
 });
 ```
 
-See [Events documentation](doc/11-events.md) for the full reference of all 47 events.
+See [Events documentation](docs/events/overview.md) for the full reference of all 47 events.
 
 ### Switch connections
 
@@ -322,19 +322,22 @@ echo $mock->callCount('read'); // 1
 
 ## Documentation
 
-| # | Document | Covers |
-|---|----------|--------|
-| 01 | [Introduction](doc/01-introduction.md) | Overview, requirements, architecture, quick start |
-| 02 | [Installation & Configuration](doc/02-installation.md) | Composer, config file, `.env`, connections, session manager |
-| 03 | [Usage](doc/03-usage.md) | Reading, writing, browsing, methods, subscriptions, history |
-| 04 | [Connections](doc/04-connections.md) | Named, ad-hoc, switching, disconnect, dependency injection |
-| 05 | [Session Manager](doc/05-session-manager.md) | Daemon, Artisan command, Supervisor, architecture |
-| 06 | [Logging & Caching](doc/06-logging-caching.md) | PSR-3/PSR-16, Laravel integration, per-call cache control |
-| 07 | [Security](doc/07-security.md) | Policies, modes, certificates, authentication |
-| 08 | [Testing](doc/08-testing.md) | MockClient, DataValue factories, unit and integration tests |
-| 09 | [Examples](doc/09-examples.md) | Complete code examples for all features |
-| 10 | [Auto-Publish & Monitoring](doc/10-auto-publish.md) | Auto-publish, auto-connect, event listeners, real-world use case |
-| 11 | [Events](doc/11-events.md) | All 47 PSR-14 events, Laravel listeners, queued handlers, practical examples |
+Full documentation is available in [`docs/`](docs/index.md). Highlights:
+
+| Section | Covers |
+|---------|--------|
+| **Getting started** — [Overview](docs/overview.md) · [Installation](docs/getting-started/installation.md) · [Quick start](docs/getting-started/quick-start.md) · [How laravel-opcua fits](docs/getting-started/how-laravel-opcua-fits.md) · [Upgrading](docs/getting-started/upgrading.md) | Concepts, install, first connection |
+| **Configuration** — [Config file](docs/configuration/config-file.md) · [Connections](docs/configuration/connections.md) · [Environment variables](docs/configuration/environment-variables.md) · [Security](docs/configuration/security.md) · [Session manager](docs/configuration/session-manager.md) · [Publishing & overriding](docs/configuration/publishing-overriding.md) | `.env`, config file, named connections |
+| **Using the client** — [Facade vs injection](docs/using-the-client/facade-vs-injection.md) · [Named connections](docs/using-the-client/named-connections.md) · [Ad-hoc connections](docs/using-the-client/ad-hoc-connections.md) · [Connection lifecycle](docs/using-the-client/connection-lifecycle.md) · [Using builders](docs/using-the-client/using-builders.md) | Facade, DI, lifecycle |
+| **Operations** — [Reading](docs/operations/reading.md) · [Writing](docs/operations/writing.md) · [Browsing](docs/operations/browsing.md) · [Method calls](docs/operations/method-calls.md) · [Subscriptions](docs/operations/subscriptions.md) · [History](docs/operations/history.md) | Read/write, browse, subscribe, history |
+| **Session manager** — [Overview](docs/session-manager/overview.md) · [Starting the daemon](docs/session-manager/starting-the-daemon.md) · [Auto-publish](docs/session-manager/auto-publish.md) · [Production supervisor](docs/session-manager/production-supervisor.md) · [Monitoring](docs/session-manager/monitoring-the-daemon.md) | Persistent sessions via daemon |
+| **Events** — [Overview](docs/events/overview.md) · [Connection events](docs/events/connection-events.md) · [Data events](docs/events/data-events.md) · [Alarm events](docs/events/alarm-events.md) · [Queued listeners](docs/events/queued-listeners.md) | PSR-14 + Laravel listeners |
+| **Observability** — [Logging](docs/observability/logging.md) · [Caching](docs/observability/caching.md) · [Debugging](docs/observability/debugging.md) · [Telescope & Pulse](docs/observability/telescope-and-pulse.md) | Logs, cache, dev tools |
+| **Security** — [Policies & modes](docs/security/policies-and-modes.md) · [Credentials](docs/security/credentials.md) · [Certificates](docs/security/certificates.md) · [Trust store](docs/security/trust-store.md) | Security policies, certs, trust |
+| **Testing** — [Pest setup](docs/testing/pest-setup.md) · [Mocking the facade](docs/testing/mocking-the-facade.md) · [Using MockClient](docs/testing/using-mock-client.md) · [Integration tests](docs/testing/integration-tests.md) | Unit + integration tests |
+| **Integrations** — [Octane & FrankenPHP](docs/integrations/octane-and-frankenphp.md) · [Horizon & queues](docs/integrations/horizon-and-queues.md) · [Broadcasting](docs/integrations/broadcasting.md) · [Livewire](docs/integrations/livewire.md) · [Notifications](docs/integrations/notifications.md) · [Filament](docs/integrations/filament.md) | Laravel ecosystem |
+| **Reference** — [Facade methods](docs/reference/facade-methods.md) · [OpcuaManager API](docs/reference/opcua-manager-api.md) · [Artisan commands](docs/reference/artisan-commands.md) · [Exceptions](docs/reference/exceptions.md) | Public API |
+| **Recipes** — [Persistent tag history](docs/recipes/persistent-tag-history.md) · [Alarm routing](docs/recipes/alarm-routing.md) · [Livewire dashboard](docs/recipes/livewire-realtime-dashboard.md) · [Multi-plant tenant](docs/recipes/multi-plant-tenant.md) · [Companion specs](docs/recipes/using-companion-specs.md) · [Dev with Sail](docs/recipes/dev-with-sail.md) · [Production deployment](docs/recipes/production-deployment.md) | Task-oriented walkthroughs |
 
 ## Testing
 

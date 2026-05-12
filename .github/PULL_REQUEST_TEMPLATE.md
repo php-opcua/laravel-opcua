@@ -26,7 +26,7 @@ A brief description of what this PR does.
 - [ ] `CHANGELOG.md` updated
 - [ ] `README.md` updated (if adding a major feature)
 - [ ] `llms.txt` and `llms-full.txt` updated (if changing the public API or architecture)
-- [ ] Documentation in `doc/` updated (if applicable)
+- [ ] Documentation in `docs/` updated (if applicable)
 
 ## Related Issues
 
