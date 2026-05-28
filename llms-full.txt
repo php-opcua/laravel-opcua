@@ -6,10 +6,11 @@
 
 - Repository: https://github.com/php-opcua/laravel-opcua
 - Packagist: https://packagist.org/packages/php-opcua/laravel-opcua
+- Documentation: https://github.com/php-opcua/laravel-opcua/tree/master/docs (also at https://php-opcua.com)
 - License: MIT
 - PHP: >= 8.2
-- Laravel: 11.x, 12.x
-- Dependencies: php-opcua/opcua-client ^4.0.0, php-opcua/opcua-session-manager ^4.0.0, illuminate/support, illuminate/console, illuminate/contracts
+- Laravel: 11.x, 12.x, 13.x
+- Dependencies: php-opcua/opcua-client ^4.4.0, php-opcua/opcua-session-manager ^4.4.0, psr/event-dispatcher ^1.0, illuminate/support, illuminate/console, illuminate/contracts (all ^11.0|^12.0|^13.0)
 
 ## Architecture
 
@@ -96,6 +97,14 @@ Note: In v4, OpcUaClientInterface no longer exposes setter methods (setTimeout, 
 ## Facade (Opcua)
 
 Static access to OpcuaManager with full PHPDoc for IDE autocompletion. Resolves to OpcuaManager::class.
+
+v4.4.0 added 21 new `@method static` annotations covering the new client surface (no application-side changes required, just type hints / autocomplete):
+
+- **HistoryUpdate (9, Part 11 §6.9)** — `historyInsertData`, `historyReplaceData`, `historyUpdateData`, `historyDeleteRawModified`, `historyDeleteAtTime`, `historyInsertEvent`, `historyReplaceEvent`, `historyUpdateEvent`, `historyDeleteEvent`
+- **File transfer (10, Part 5 §C.2 + §C.3)** — `openFile`, `closeFile`, `readFile`, `writeFile`, `getFilePosition`, `setFilePosition`, `createDirectory`, `createFileInDirectory`, `deleteFileSystemObject`, `moveOrCopyFileSystemObject`
+- **Aggregates (2, Part 13)** — `aggregate(DataValue[] $raw, …, AggregateFunction, ?AggregateOptions)`, `historyAggregate(NodeId|string, …, AggregateFunction, ?AggregateOptions)`
+
+Mixed-version deployments (Laravel `^4.4` against daemon still on `^4.3`) will throw `BadMethodCallException` if any new method is called — upgrade order: daemon first, then the Laravel application.
 
 ## OpcuaServiceProvider
 
@@ -279,19 +288,24 @@ Throws UntrustedCertificateException when a server presents a certificate not in
 
 ## PSR-14 Events
 
-47 events dispatched via Laravel's event dispatcher, covering:
-- Connection lifecycle (connecting, connected, disconnecting, disconnected, reconnecting)
-- Read/write operations (reading, read, writing, written)
-- Browse operations (browsing, browsed)
-- Subscriptions (creating, created, deleting, deleted, publishing, published)
-- Monitored items (creating, created, modifying, modified, deleting, deleted, triggering, triggered)
-- Method calls (calling, called)
-- History reads (reading, read)
-- Discovery (discovering, discovered)
-- Trust store (trusting, trusted, untrusting, untrusted)
-- Errors (operation-specific error events)
+56 events dispatched via Laravel's event dispatcher. All events are immutable `final readonly` DTOs in `PhpOpcua\Client\Event\*`. Register listeners via Laravel's EventServiceProvider or Event facade.
 
-All events are immutable DTOs. Register listeners via Laravel's EventServiceProvider or Event facade.
+Coverage:
+- Connection lifecycle: ClientConnecting, ClientConnected, ClientDisconnecting, ClientDisconnected, ClientReconnecting, ConnectionFailed
+- Secure channel / session: SecureChannelOpened, SecureChannelClosed, SessionCreated, SessionActivated, SessionClosed
+- Read/write: NodeValueRead, NodeValueWritten, NodeValueWriteFailed, WriteTypeDetecting, WriteTypeDetected
+- Browse: NodeBrowsed
+- Subscriptions: SubscriptionCreated, SubscriptionDeleted, SubscriptionKeepAlive, SubscriptionTransferred, PublishResponseReceived
+- Monitored items: MonitoredItemCreated, MonitoredItemModified, MonitoredItemDeleted, TriggeringConfigured
+- Notifications: DataChangeReceived, EventNotificationReceived
+- Alarms (Part 9): AlarmEventReceived, AlarmActivated, AlarmDeactivated, AlarmAcknowledged, AlarmConfirmed, AlarmShelved, AlarmSeverityChanged, LimitAlarmExceeded, OffNormalAlarmTriggered
+- History: HistoryDataDeleted, HistoryDataUpdated, HistoryEventDeleted, HistoryEventUpdated
+- File transfer: FileOpened, FileClosed, FileBytesRead, FileBytesWritten
+- Aggregates (Part 13): AggregateComputed
+- Discovery: DataTypesDiscovered
+- Cache: CacheHit, CacheMiss
+- Retry: RetryAttempt, RetryExhausted
+- Trust store: ServerCertificateAutoAccepted, ServerCertificateManuallyTrusted, ServerCertificateRejected, ServerCertificateRemoved, ServerCertificateTrusted
 
 ## New Exceptions (v4)
 
@@ -369,7 +383,7 @@ DataValue factories: ofBoolean, ofInt32, ofUInt32, ofInt16, ofUInt16, ofDouble, 
 
 ## Testing
 
-80+ unit tests, 20+ integration test files. Uses Pest PHP. Integration tests require uanetstandard-test-suite Docker containers.
+7 unit test files (~161 it() blocks) + 22 integration test files (~119 it() blocks), Pest PHP. Integration tests require uanetstandard-test-suite Docker containers (`v1.5.0`, exposes the historizing server on `:24842`, ECC NIST/Brainpool servers on `:4848`/`:4849`, HTTPS Binary on `:4852`, Security Key Service on `:4851`).
 
 ```bash
 ./vendor/bin/pest tests/Unit/

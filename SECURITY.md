@@ -12,7 +12,7 @@
 
 If you discover a security vulnerability in this library, please report it responsibly.
 
-**Do not open a public issue.** Instead, send an email to [gianfri.aur@gmail.com](mailto:gianfri.aur@gmail.com) with:
+**Do not open a public issue.** Instead, send an email to [security@php-opcua.com](mailto:security@php-opcua.com) with:
 
 - A description of the vulnerability
 - Steps to reproduce

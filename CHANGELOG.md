@@ -1,5 +1,41 @@
 # Changelog
 
+## [4.4.0] - 2026-05-28
+
+Lock-step release with `php-opcua/opcua-client` v4.4.0 and `php-opcua/opcua-session-manager` v4.4.0. The Laravel integration is a thin facade + service provider over the core client; every method the core or the daemon added in v4.4 is now reachable through `Opcua::*` without any application-side changes.
+
+### Changed
+
+- Bumped `php-opcua/opcua-client` `^4.3.1` → `^4.4.0`.
+- Bumped `php-opcua/opcua-session-manager` `^4.3.1` → `^4.4.0`.
+- Bumped CI test-server suite from `uanetstandard-test-suite@v1.1.0` to `@v1.5.0` (adds HTTPS Binary on `:4852`, the Security Key Service on `:4851`, ECC NIST / Brainpool servers on `:4848` / `:4849`, and the open62541-backed `historizing` server on `:24842` that the new HistoryUpdate integration tests target).
+
+### Added — `Opcua` facade surface (lock-step with `opcua-client` v4.4.0)
+
+21 new `@method static` annotations on `PhpOpcua\LaravelOpcua\Facades\Opcua` so IDE autocomplete and static analysis see the new client surface the same way they see `read`, `write`, `browse`. Resolves to the underlying `OpcUaClientInterface` (direct client or `ManagedClient`, transparently per `session_manager.socket_path`).
+
+**HistoryUpdate (9, Part 11 §6.9)** — Insert / Replace / Update / Delete for both data and event timeseries:
+- `historyInsertData`, `historyReplaceData`, `historyUpdateData`
+- `historyDeleteRawModified` (range → overall status), `historyDeleteAtTime` (timestamps → per-entry statuses)
+- `historyInsertEvent`, `historyReplaceEvent`, `historyUpdateEvent`, `historyDeleteEvent`
+
+**File Transfer (10, Part 5 §C.2 + §C.3)**:
+- FileType: `openFile`, `closeFile`, `readFile`, `writeFile`, `getFilePosition`, `setFilePosition`
+- FileDirectoryType: `createDirectory`, `createFileInDirectory`, `deleteFileSystemObject`, `moveOrCopyFileSystemObject`
+
+**Aggregate (2, Part 13)** — client-side aggregate computation on a raw `DataValue[]` buffer (the core exposes them via `Client::__call()`):
+- `aggregate(DataValue[] $rawValues, …, AggregateFunction, ?AggregateOptions)`
+- `historyAggregate(NodeId|string, …, AggregateFunction, ?AggregateOptions)`
+
+Imports added to the facade file for the four new types: `AggregateFunction`, `AggregateOptions`, `OpenFileMode`, `CreateFileResult`.
+
+### Compatibility
+
+- **No application-side changes required.** Existing code calling `Opcua::read()`, `Opcua::write()`, `Opcua::browse()`, etc. keeps working unchanged. The new methods are additive.
+- **No config changes.** `config/opcua.php` is untouched. `OPCUA_*` env keys keep the same semantics.
+- **No service provider change.** `OpcuaServiceProvider` was not modified for v4.4 — the new methods are reachable purely through the manager's `__call()` fallback.
+- **Daemon `--version` reports `4.4.0`** when running against the bumped `opcua-session-manager`. Mixed-version deployments (Laravel `^4.4` against a daemon still on `^4.3`) will hit `BadMethodCallException` if the application calls one of the 21 new methods — upgrade order: daemon first, then the Laravel application.
+
 ## [4.3.1] - 2026-05-12
 
 ### Added

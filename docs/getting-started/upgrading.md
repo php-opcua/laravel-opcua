@@ -24,11 +24,12 @@ major.minor versions stay in sync; patches are independent.
 | `4.1.x`        | `4.1.x`         | 11.x                              |
 | `4.2.x`        | `4.2.x`         | 11.x, 12.x                        |
 | `4.3.x`        | `4.3.x`         | 11.x, 12.x, 13.x                  |
+| `4.4.x`        | `4.4.x`         | 11.x, 12.x, 13.x                  |
 
-The Composer constraint `^4.3` accepts every patch. Same on
+The Composer constraint `^4.4` accepts every patch. Same on
 `opcua-client` — both packages share the same major/minor.
 
-## Same-minor upgrades (`4.3.0 → 4.3.1`)
+## Same-minor upgrades (`4.4.0 → 4.4.1`)
 
 Composer pulls the new version automatically with
 `composer update`. No code changes, no config changes, no
@@ -45,7 +46,41 @@ The `config:clear` step is precautionary — same-minor changes
 don't touch the config schema, but it ensures Laravel re-reads
 on the next request if you had a stale cache.
 
-## Cross-minor upgrades (`4.2 → 4.3`)
+## Cross-minor upgrades (`4.3 → 4.4`)
+
+Two scripted steps and a CHANGELOG read. v4.4 is a pure additive
+release — 21 new methods landed on `Opcua::*` (HistoryUpdate ×9,
+FileTransfer ×10, Aggregate ×2), nothing was removed or renamed.
+
+<!-- @code-block language="bash" label="terminal" -->
+```bash
+composer require php-opcua/laravel-opcua:^4.4
+php artisan config:clear
+```
+<!-- @endcode-block -->
+
+The new methods are reachable immediately. Example:
+
+<!-- @code-block language="php" label="historyInsertData via the facade" -->
+```php
+use PhpOpcua\LaravelOpcua\Facades\Opcua;
+use PhpOpcua\Client\Types\BuiltinType;
+use PhpOpcua\Client\Types\DataValue;
+
+$statuses = Opcua::historyInsertData('ns=2;s=Sensors/Temp', [
+    DataValue::of(22.1, BuiltinType::Double)->withSourceTimestamp($t1),
+    DataValue::of(22.3, BuiltinType::Double)->withSourceTimestamp($t2),
+]);
+```
+<!-- @endcode-block -->
+
+If you run the daemon (`session_manager.socket_path` set), upgrade
+the daemon first. A 4.4 application against a 4.3 daemon raises
+`BadMethodCallException` from the IPC layer when an application
+calls one of the 21 new methods (the older daemon's `describe`
+response does not advertise them).
+
+## Earlier cross-minor upgrades (`4.2 → 4.3`)
 
 Two scripted steps and a CHANGELOG read.
 

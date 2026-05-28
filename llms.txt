@@ -20,7 +20,7 @@
 - String NodeIds everywhere — 'i=2259', 'ns=2;s=MyNode'
 - Fluent Builder API — readMulti(), writeMulti(), createMonitoredItems(), translateBrowsePaths()
 - PSR-3 Logging — Laravel log channel injected automatically
-- PSR-14 Events — 47 dispatched events covering every OPC UA operation for observability
+- PSR-14 Events — 56 dispatched events covering every OPC UA operation for observability
 - PSR-16 Caching — Laravel cache store injected automatically, per-call useCache
 - Write auto-detection — omit the type parameter in write() and let the client detect the correct OPC UA type
 - Read metadata cache — cached node metadata avoids redundant reads; refresh with read($nodeId, refresh: true)
@@ -97,7 +97,7 @@ FileTrustStore manages trusted/rejected server certificates on disk. Configured 
 
 ## PSR-14 Events
 
-47 events dispatched via Laravel's event dispatcher. Events cover: connection lifecycle, read/write, browse, subscriptions, method calls, history, discovery, trust store operations, and errors.
+56 events dispatched via Laravel's event dispatcher. Events cover: connection lifecycle, read/write, browse, subscriptions, monitored items, method calls, history, file transfer, alarms, retry, discovery, trust store operations, and errors.
 
 ## New Exceptions
 
@@ -117,7 +117,7 @@ FileTrustStore manages trusted/rejected server certificates on disk. Configured 
 
 - PHP >= 8.2
 - ext-openssl
-- Laravel 11.x or 12.x
+- Laravel 11.x, 12.x, or 13.x
 
 ## License
 
@@ -127,4 +127,4 @@ MIT
 
 - Repository: https://github.com/php-opcua/laravel-opcua
 - Packagist: https://packagist.org/packages/php-opcua/laravel-opcua
-- Documentation: https://github.com/php-opcua/laravel-opcua/tree/master/doc
+- Documentation: https://github.com/php-opcua/laravel-opcua/tree/master/docs (also published at https://php-opcua.com)

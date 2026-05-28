@@ -22,6 +22,10 @@ use PhpOpcua\Client\Module\ReadWrite\CallResult;
 use PhpOpcua\Client\Types\ConnectionState;
 use PhpOpcua\Client\Types\DataValue;
 use PhpOpcua\Client\Types\EndpointDescription;
+use PhpOpcua\Client\Module\Aggregate\AggregateFunction;
+use PhpOpcua\Client\Module\Aggregate\AggregateOptions;
+use PhpOpcua\Client\Module\FileTransfer\CreateFileResult;
+use PhpOpcua\Client\Module\FileTransfer\OpenFileMode;
 use PhpOpcua\Client\Module\Subscription\MonitoredItemModifyResult;
 use PhpOpcua\Client\Module\Subscription\MonitoredItemResult;
 use PhpOpcua\Client\Types\NodeClass;
@@ -93,6 +97,33 @@ use Psr\SimpleCache\CacheInterface;
  * @method static DataValue[] historyReadRaw(NodeId|string $nodeId, ?\DateTimeImmutable $startTime = null, ?\DateTimeImmutable $endTime = null, int $numValuesPerNode = 0, bool $returnBounds = false)
  * @method static DataValue[] historyReadProcessed(NodeId|string $nodeId, \DateTimeImmutable $startTime, \DateTimeImmutable $endTime, float $processingInterval, NodeId $aggregateType)
  * @method static DataValue[] historyReadAtTime(NodeId|string $nodeId, array $timestamps)
+ *
+ * History update (v4.4.0 — OPC UA Part 11 §6.9):
+ * @method static int[] historyInsertData(NodeId|string $nodeId, DataValue[] $values)
+ * @method static int[] historyReplaceData(NodeId|string $nodeId, DataValue[] $values)
+ * @method static int[] historyUpdateData(NodeId|string $nodeId, DataValue[] $values)
+ * @method static int historyDeleteRawModified(NodeId|string $nodeId, \DateTimeImmutable $startTime, \DateTimeImmutable $endTime, bool $isDeleteModified = false)
+ * @method static int[] historyDeleteAtTime(NodeId|string $nodeId, \DateTimeImmutable[] $timestamps)
+ * @method static int[] historyInsertEvent(NodeId|string $nodeId, string[] $selectFields, array $eventData)
+ * @method static int[] historyReplaceEvent(NodeId|string $nodeId, string[] $selectFields, array $eventData)
+ * @method static int[] historyUpdateEvent(NodeId|string $nodeId, string[] $selectFields, array $eventData)
+ * @method static int[] historyDeleteEvent(NodeId|string $nodeId, string[] $eventIds)
+ *
+ * File transfer (v4.4.0 — OPC UA Part 5 §C.2 / §C.3):
+ * @method static int openFile(NodeId|string $fileNodeId, OpenFileMode|int $mode)
+ * @method static void closeFile(NodeId|string $fileNodeId, int $fileHandle)
+ * @method static string readFile(NodeId|string $fileNodeId, int $fileHandle, int $length)
+ * @method static void writeFile(NodeId|string $fileNodeId, int $fileHandle, string $data)
+ * @method static int getFilePosition(NodeId|string $fileNodeId, int $fileHandle)
+ * @method static void setFilePosition(NodeId|string $fileNodeId, int $fileHandle, int $position)
+ * @method static NodeId createDirectory(NodeId|string $directoryNodeId, string $directoryName)
+ * @method static CreateFileResult createFileInDirectory(NodeId|string $directoryNodeId, string $fileName, bool $requestFileOpen = false)
+ * @method static void deleteFileSystemObject(NodeId|string $directoryNodeId, NodeId|string $targetNodeId)
+ * @method static NodeId moveOrCopyFileSystemObject(NodeId|string $directoryNodeId, NodeId|string $sourceNodeId, NodeId|string $targetDirectoryNodeId, bool $createCopy, string $newName = '')
+ *
+ * Client-side aggregate computation (v4.4.0 — OPC UA Part 13, reachable through Client::__call):
+ * @method static DataValue[] aggregate(DataValue[] $rawValues, \DateTimeImmutable $startTime, \DateTimeImmutable $endTime, float $processingIntervalMs, AggregateFunction $function, ?AggregateOptions $options = null)
+ * @method static DataValue[] historyAggregate(NodeId|string $nodeId, \DateTimeImmutable $startTime, \DateTimeImmutable $endTime, float $processingIntervalMs, AggregateFunction $function, ?AggregateOptions $options = null)
  *
  * @see OpcuaManager
  */
