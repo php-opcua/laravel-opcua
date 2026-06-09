@@ -49,7 +49,7 @@ Laravel integration for [OPC UA](https://opcfoundation.org/about/opc-technologie
 
 ### Tested against the OPC UA reference implementation
 
-The underlying [opcua-client](https://github.com/php-opcua/opcua-client) is integration-tested against **[UA-.NETStandard](https://github.com/OPCFoundation/UA-.NETStandard)** — the **reference implementation** maintained by the OPC Foundation, the organization that defines the OPC UA specification. This is the same stack used by major industrial vendors to certify their products.
+The underlying [opcua-client](https://github.com/php-opcua/opcua-client) is integration-tested against **[UA-.NETStandard](https://github.com/OPCFoundation/UA-.NETStandard)** — the **reference implementation** maintained by the OPC Foundation, the organization that defines the OPC UA specification.
 
 This Laravel package is additionally integration-tested via [uanetstandard-test-suite](https://github.com/php-opcua/uanetstandard-test-suite) in both direct and managed (daemon) modes, ensuring full compatibility across all connection strategies. Like [opcua-client](https://github.com/php-opcua/opcua-client) and [opcua-session-manager](https://github.com/php-opcua/opcua-session-manager), unit tests run cross-OS — **Linux, macOS, and Windows** across PHP 8.2–8.5 × Laravel 11/12/13 — on every push. Integration tests stay on Linux (Docker-hosted OPC UA servers).
 
