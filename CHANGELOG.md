@@ -1,5 +1,23 @@
 # Changelog
 
+## [4.4.1] - 2026-06-23
+
+### Fixed
+
+- **Events now reach Laravel listeners out of the box.** `OpcuaServiceProvider` now binds a default `Psr\EventDispatcher\EventDispatcherInterface` when none is registered. Previously nothing bound that interface, so `OpcuaManager` received a `null` dispatcher and OPC UA events (`DataChangeReceived`, `ClientConnected`, …) were silently never dispatched — despite the docs stating they "flow through `Event::listen()` natively". They now do.
+- **`php artisan opcua:session` no longer aborts with `auto_publish` enabled.** `SessionCommand` resolves `EventDispatcherInterface` from the container in auto-publish mode; with no binding present this threw `BindingResolutionException: Target [Psr\EventDispatcher\EventDispatcherInterface] is not instantiable` on daemon startup. The default binding resolves it.
+
+### Added
+
+- `PhpOpcua\LaravelOpcua\Events\LaravelPsr14Dispatcher` — a thin PSR-14 adapter over Laravel's event dispatcher. Laravel's `Illuminate\Events\Dispatcher` is *shaped* like PSR-14 (dispatches an object by class name) but does not formally `implement` `Psr\EventDispatcher\EventDispatcherInterface`, so passing it directly fails the type check. The adapter wraps it and is bound as the container default.
+
+### Compatibility
+
+- **No application-side changes required, but listener behaviour changes.** Apps that registered `Event::listen(...)` for `PhpOpcua\Client\Event\*` and saw nothing fire will now start receiving events. If you do not want OPC UA events delivered, do not register listeners for them.
+- **Overridable.** The default is bound via `singletonIf` — an application (or another package) that binds its own `Psr\EventDispatcher\EventDispatcherInterface` first keeps it untouched.
+- **Guarded.** The default is only registered when Laravel's event system is present (`$app->bound('events')`); in a bare container with no events binding, `OpcuaManager` still receives `null` as before.
+- No config changes. `config/opcua.php` and the `OPCUA_*` env keys are unchanged.
+
 ## [4.4.0] - 2026-05-28
 
 Lock-step release with `php-opcua/opcua-client` v4.4.0 and `php-opcua/opcua-session-manager` v4.4.0. The Laravel integration is a thin facade + service provider over the core client; every method the core or the daemon added in v4.4 is now reachable through `Opcua::*` without any application-side changes.

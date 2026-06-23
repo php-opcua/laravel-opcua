@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PhpOpcua\LaravelOpcua\Commands\SessionCommand;
+use PhpOpcua\LaravelOpcua\Events\LaravelPsr14Dispatcher;
 use PhpOpcua\LaravelOpcua\OpcuaManager;
 use PhpOpcua\LaravelOpcua\OpcuaServiceProvider;
 use Illuminate\Config\Repository;
@@ -153,6 +154,33 @@ describe('OpcuaServiceProvider', function () {
             $ref = new ReflectionProperty($manager, 'defaultEventDispatcher');
 
             expect($ref->getValue($manager))->toBe($dispatcher);
+        });
+
+        it('binds a default PSR-14 dispatcher adapting Laravel events when none is bound', function () {
+            $app = makeApp();
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            expect($app->bound(EventDispatcherInterface::class))->toBeTrue();
+
+            $dispatcher = $app->make(EventDispatcherInterface::class);
+            expect($dispatcher)->toBeInstanceOf(LaravelPsr14Dispatcher::class);
+
+            // The manager receives it instead of null.
+            $manager = $app->make(OpcuaManager::class);
+            $ref = new ReflectionProperty($manager, 'defaultEventDispatcher');
+            expect($ref->getValue($manager))->toBe($dispatcher);
+        });
+
+        it('does not override an event dispatcher the application already bound', function () {
+            $custom = Mockery::mock(EventDispatcherInterface::class);
+            $app = makeApp(eventDispatcher: $custom);
+            $provider = new OpcuaServiceProvider($app);
+
+            $provider->register();
+
+            expect($app->make(EventDispatcherInterface::class))->toBe($custom);
         });
 
         it('leaves defaults null when Laravel logger/cache are not bound', function () {

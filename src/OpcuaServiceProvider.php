@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpOpcua\LaravelOpcua;
 
 use PhpOpcua\LaravelOpcua\Commands\SessionCommand;
+use PhpOpcua\LaravelOpcua\Events\LaravelPsr14Dispatcher;
 use Illuminate\Support\ServiceProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -18,6 +19,17 @@ class OpcuaServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/opcua.php', 'opcua');
+
+        // Provide a default PSR-14 dispatcher so OPC UA events reach Laravel
+        // listeners out of the box. Laravel's own dispatcher does not formally
+        // implement Psr\EventDispatcher\EventDispatcherInterface, so we adapt
+        // it. Only when Laravel's event system is present; `singletonIf` lets
+        // an application bind its own implementation first and keep it.
+        if ($this->app->bound('events')) {
+            $this->app->singletonIf(EventDispatcherInterface::class, static function ($app): EventDispatcherInterface {
+                return new LaravelPsr14Dispatcher($app->make('events'));
+            });
+        }
 
         $this->app->singleton(OpcuaManager::class, function ($app) {
             $logger = $app->bound(LoggerInterface::class)
